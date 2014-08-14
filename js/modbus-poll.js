@@ -84,10 +84,12 @@
             
                 that.client.readCoils(start, count).then(function () {
 
-                    that.fire(id, arguments); 
+                    that._handler[id].executed = true;
+                    that.fire(id, arguments);
 
                 }).fail(function () {
-                    
+                   
+                    that.stop(); 
                     that.fire('error', [
                         { 
                             'errCode' : id, 
@@ -114,10 +116,12 @@
             
                 that.client.readInputRegisters(start, count).then(function () {
 
+                    that._handler[id].executed = true;
                     that.fire(id, arguments); 
 
                 }).fail(function () {
-                    
+                   
+                    that.stop(); 
                     that.fire('error', [
                         { 
                             'errCode' : id, 
@@ -143,10 +147,12 @@
             
                 that.client.writeSingleCoil(reg, value).then(function () {
 
+                    that._handler[id].executed = true;
                     that.fire(id, arguments); 
 
                 }).fail(function () {
-                    
+                   
+                    that.stop(); 
                     that.fire('error', [
                         { 
                             'errCode' : id, 
@@ -172,10 +178,12 @@
             
                 that.client.writeSingleRegister(reg, value).then(function () {
 
+                    that._handler[id].executed = true;
                     that.fire(id, arguments); 
 
                 }).fail(function () {
-                    
+                   
+                    that.stop(); 
                     that.fire('error', [
                         { 
                             'errCode' : id, 
@@ -190,6 +198,18 @@
         this._handler[id] = handler;
 
         return this._id++;
+    
+    });
+
+    ModusPoll.method('remove', function (id) {
+    
+        if (!this._handler[id]) {
+            return false;
+        }
+
+        delete this._handler[id];
+
+        return true;
     
     });
 

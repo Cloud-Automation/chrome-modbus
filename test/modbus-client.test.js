@@ -14,15 +14,15 @@ describe('ModbusClient ReadCoils Test.', function () {
         };
 
         socketMock = sinon.mock(socket_api);
-        socket_api.onReceive = function () { };
-        listenerSpy = sinon.spy(socket_api, 'onReceive');
+        socket_api.onReceive = {
+            addListener: function () { }
+        };
+        listenerSpy = sinon.spy(socket_api.onReceive, 'addListener');
 
         client = ModbusClient({ socketId: 1 }, socket_api); 
 
         receiveListener = listenerSpy.getCall(0).args[0];
     });
-
-
 
     it('Should send read coils packet.', function () { 
 

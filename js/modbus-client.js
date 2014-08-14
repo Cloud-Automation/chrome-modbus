@@ -133,7 +133,7 @@
 
         };
 
-        this.sockets.onReceive(this._receiveListener);
+        this.sockets.onReceive.addListener(this._receiveListener);
 
         this._responseHandler = { };
 
