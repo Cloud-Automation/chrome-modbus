@@ -1,0 +1,72 @@
+<!doctype html>
+
+<html>
+
+    <head>
+
+        <meta charset="utf8" />
+        <title>Modbus Client Tests</title>
+        <link rel="stylesheet" href="../bower_components/mocha/mocha.css" />
+
+    </head>
+
+    <body>
+
+        <div id="mocha"></div>
+
+        <!-- setup -->
+
+        <script src="../bower_components/sinon/lib/sinon.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/match.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/spy.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/stub.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/mock.js"></script>
+
+        <script src="../bower_components/sinon/lib/sinon.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/match.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/spy.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/call.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/behavior.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/stub.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/mock.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/assert.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/util/event.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/util/fake_xml_http_request.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/util/fake_timers.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/util/fake_xdomain_request.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/util/xhr_ie.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/util/xdr_ie.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/util/timers_ie.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/util/fake_server.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/util/fake_server_with_clock.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/collection.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/sandbox.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/test.js"></script>
+        <script src="../bower_components/sinon/lib/sinon/test_case.js"></script>
+
+        <script src="../bower_components/mocha/mocha.js"></script>
+        <script>mocha.setup('bdd'); </script>
+
+        <!-- subjects -->
+
+        <script src="../js/sugar.js"></script>
+        <script src="../js/events.js"></script>
+
+        <script src="../bower_components/jquery/dist/jquery.min.js"></script>
+        <script src="../js/modbus-client.js"></script>
+
+        <!-- tests -->
+        <script src="../bower_components/should/should.js"></script>
+        <script src="arraybuffer.matcher.js"></script>
+        <script src="modbus-client.test.js"></script>
+
+        <!-- go -->
+
+        <script>
+            mocha.checkLeaks();
+            mocha.run();
+        </script>
+
+    </body>
+
+</html>
