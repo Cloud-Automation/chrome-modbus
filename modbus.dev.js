@@ -1,3 +1,77 @@
+(function () {
+
+    Function.prototype.method = function (name, func) {
+    
+        this.prototype[name] = func;
+        return this;
+    
+    };
+
+    Function.method('inherits', function (superCtor) {
+ 
+        this.super_ = superCtor;
+        this.prototype = Object.create(superCtor.prototype, {
+            constructor: {
+                value: this,
+                enumerable: false,
+                writable: true,
+                configurable: true
+            }
+        });
+
+        return this;
+    });
+
+})();
+(function () {
+
+    Events = function () {
+   
+        this._cbList = { };
+
+    };
+
+    Events.method('fire', function (name, args) {
+    
+        if (!this._cbList[name]) {
+        
+            return;
+
+        }
+ 
+        for (var i in this._cbList[name]) {
+            
+            this._cbList[name][i].apply(null, args);
+        
+        }
+    
+    });
+
+    Events.method('fireLater', function (name) {
+    
+        var that = this;
+
+        return function () {
+        
+            that.fire(name, arguments);
+
+        };
+
+    });
+
+    Events.method('on', function (name, func) {
+ 
+        if (!this._cbList[name]) {
+            this._cbList[name] = [];
+        }
+
+        this._cbList[name].push(func);
+
+        return this;
+    
+    });
+
+})();
 (function () { 
   
     // constants
@@ -393,3 +467,310 @@
 
 })();
 
+(function () {
+
+    ModbusPoll = function (client, duration) {
+    
+        if (!(this instanceof ModbusPoll)) {
+            return new ModbusPoll(client, duration);
+        }
+
+        Events.call(this);
+
+        if (!client) {
+            throw new Error('No Modbus client defined!');
+        }
+
+        this._client = client;
+        this._duration = duration;
+
+        this._handler = { };
+
+        this._start = false;
+        this._counter = -1;
+        this._id = 0;
+
+
+        var that = this;
+
+        this._client.on('error', function () {
+        
+            that._fire('error', arguments);
+
+        });
+
+        this._confirmTermination = function () {
+        
+            if (that._counter === -1) {
+                return;
+            }
+
+            for (var i in this._handler) {
+            
+                if (!this._handler[i].executed) {
+
+                    this.stop();
+                    this.fire('error', [{ 'errCode': 'loopOutOfSync' }]);
+                    return;
+                
+                }
+
+            }
+
+        };
+
+        this._resetExecutionFlags = function () {
+        
+            for (var i in this._handler) {
+            
+                this._handler[i].executed = false;
+
+            }
+
+        };
+
+        this._callHandlers = function () {
+       
+            for (var i in this._handler) {
+            
+                this._handler[i].func();
+
+            }
+        
+        };
+
+        this.iid = setInterval(function () {
+      
+            if (!that._start) {
+                return;
+            }
+
+            that._confirmTermination();
+            that._resetExecutionFlags();
+            that._callHandlers();
+
+            that._counter = (that._counter + 1) % 1000;
+
+        }, this._duration);
+
+     
+    };
+
+    ModbusPoll.inherits(Events);
+
+    ModbusPoll.method('readCoils', function (start, count) {
+
+        var that    = this,
+            id      = this._id,
+            handler = function () {
+            
+                that._client.readCoils(start, count).then(function () {
+
+                    that._handler[id].executed = true;
+                    that.fire(id, arguments);
+
+                }).fail(function () {
+                   
+                    that.stop(); 
+                    that.fire('error', [
+                        { 
+                            'errCode' : id, 
+                            'args'    : arguments 
+                        }
+                    ]);
+
+                });
+
+            };
+
+        this._handler[id] = { };
+        this._handler[id].func = handler;
+        this._handler[id].executed = false;
+
+        return this._id++;
+    
+    });
+
+    ModbusPoll.method('readInputRegisters', function (start, count) {
+
+        var that    = this,
+            id      = this._id,
+            handler = function () {
+            
+                that._client.readInputRegisters(start, count).then(function () {
+
+                    that._handler[id].executed = true;
+                    that.fire(id, arguments); 
+
+                }).fail(function () {
+                   
+                    that.stop(); 
+                    that.fire('error', [
+                        { 
+                            'errCode' : id, 
+                            'args'    : arguments 
+                        }
+                    ]);
+
+                });
+
+            };
+
+        this._handler[id]           = { };
+        this._handler[id].func      = handler;
+        this._handler[id].executed  = false;
+
+        return this._id++;
+    
+    });
+
+    ModbusPoll.method('writeSingleCoil', function (reg, value) {
+
+        var that    = this,
+            id      = this._id,
+            handler = function () {
+            
+                that._client.writeSingleCoil(reg, value).then(function () {
+
+                    that._handler[id].executed = true;
+                    that.fire(id, arguments); 
+
+                }).fail(function () {
+                   
+                    that.stop(); 
+                    that.fire('error', [
+                        { 
+                            'errCode' : id, 
+                            'args'    : arguments 
+                        }
+                    ]);
+
+                });
+
+            };
+
+        this._handler[id] = { };
+        this._handler[id].func = handler;
+        this._handler[id].executed = false;
+
+        return this._id++;
+    
+    });
+
+    ModbusPoll.method('writeSingleRegister', function (reg, value) {
+
+        var that    = this,
+            id      = this._id,
+            handler = function () {
+            
+                that._client.writeSingleRegister(reg, value).then(function () {
+
+                    that._handler[id].executed = true;
+                    that.fire(id, arguments); 
+
+                }).fail(function () {
+                   
+                    that.stop(); 
+                    that.fire('error', [
+                        { 
+                            'errCode' : id, 
+                            'args'    : arguments 
+                        }
+                    ]);
+
+                });
+
+            };
+
+        this._handler[id] = { };
+        this._handler[id].func = handler;
+        this._handler[id].executed = false;
+
+        return this._id++;
+    
+    });
+
+    ModbusPoll.method('remove', function (id) {
+    
+        if (!this._handler[id]) {
+            return false;
+        }
+
+        delete this._handler[id];
+
+        return true;
+    
+    });
+
+    ModbusPoll.method('start', function () {
+
+        this._counter = -1;
+        this._start = true; 
+
+    
+    });
+
+    ModbusPoll.method('stop', function () {
+    
+        this._start = false;
+    
+    });
+
+
+})();
+(function () {
+
+    if (!(window.CloudAutomation)) {
+        window.CloudAutomation = {};
+    }
+
+    var pModbusClient = {
+    
+        connect: function () {
+        
+            var con     = { },
+                defer   = $.Deferred(); 
+
+            con.host    = arguments[0];
+            con.port    = arguments.length === 2 ? arguments[1] : 502;
+
+            chrome.sockets.tcp.create({}, function (createInfo) {
+            
+                con.socketId = createInfo.socketId;
+           
+                chrome.sockets.tcp.connect(
+                    con.socketId,
+                    con.host,
+                    con.port,
+                    function (result) {
+                  
+                        if (result !== 0) {
+                        
+                            defer.reject({ errCode: result });
+                            chrome.sockets.tcp.destroy(that.socketId);
+
+                            return;
+
+                        }
+
+                        defer.resolve(new ModbusClient(con, chrome.sockets)); 
+                    
+                    });
+
+            });
+
+            return defer.promise();
+
+        },
+
+        close: function (socketId) {
+        
+            chrome.sockets.tcp.close(socketId);
+        
+        }
+    
+    };
+
+    CloudAutomation.ModbusClient = pModbusClient;
+
+})();

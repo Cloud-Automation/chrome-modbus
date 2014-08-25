@@ -8,10 +8,6 @@
 
         Events.call(this);
 
-        if (!client) {
-            throw new Error('No Modbus client defined!');
-        }
-
         this._client = client;
         this._duration = duration;
 
@@ -32,7 +28,7 @@
 
         this._confirmTermination = function () {
         
-            if (that._counter === -1) {
+            if (this._counter === -1) {
                 return;
             }
 
@@ -82,7 +78,7 @@
 
             that._counter = (that._counter + 1) % 1000;
 
-        }, this._duration);
+        }, duration);
 
      
     };

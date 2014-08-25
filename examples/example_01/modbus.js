@@ -23,7 +23,7 @@
                     con.host,
                     con.port,
                     function (result) {
-                  
+
                         if (result !== 0) {
                         
                             defer.reject({ errCode: result });
@@ -33,7 +33,7 @@
 
                         }
 
-                        defer.resolve(new ModbusClient(con, chrome.sockets)); 
+                        defer.resolve(new ModbusClient(con)); 
                     
                     });
 

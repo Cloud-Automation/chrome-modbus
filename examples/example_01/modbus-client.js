@@ -32,13 +32,15 @@
         this.id         = 0;
         this.handler    = { };
 
-        var that        = this;
+        var that = this;
 
-        this._receiveListener = function (resp) { 
+
+        this._receiveListener = function (info) { 
+
 
             var offset  = 0,
                 hasMore = true,
-                data    = resp.data;
+                data = info.data;
 
             while (hasMore) {
                 
@@ -70,7 +72,7 @@
 
                     that.fire('error', [
                         {
-                            'errCode'   : 'noHandler',
+                            'errCode'   : 'noUserHandler',
                             'tid'       : tid 
                         }
                     ]);
@@ -117,7 +119,7 @@
                 if (res.pdu.data) {
                     uHandler.callback.resolve(res.pdu.data, res);
                 } else {
-                    uHandler.callback.rsolve(res);
+                    uHandler.callback.resolve(res);
                 }
                    
                 // delete the handler
@@ -131,6 +133,9 @@
             }
 
         };
+
+
+
 
         this._responseHandler = { };
 
@@ -218,8 +223,7 @@
 
         this._sendPacket = function (packet) {
 
-            chrome.sockets.tcp.send(
-                this.con.socketId, packet, function () { });
+            chrome.sockets.tcp.send(this.con.socketId, packet, function () { });
 
         };
 
@@ -343,6 +347,7 @@
         };
 
         chrome.sockets.tcp.onReceive.addListener(this._receiveListener);
+
 
     };
 
