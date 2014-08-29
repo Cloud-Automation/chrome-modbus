@@ -42,8 +42,16 @@
 
         this._cbList[name].push(func);
 
-        return this;
+        return { name: name, index: this._cbList[name].length-1 };
     
+    });
+
+    Events.method('off', function (id) {
+
+        this._cbList[id.name].splice(id.index);
+
+        return this;
+
     });
 
 })();

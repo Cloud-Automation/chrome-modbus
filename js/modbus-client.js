@@ -68,12 +68,15 @@
 
                 if (!that.handler[tid]) {
 
-                    that.fire('error', [
+                    // we do not need a handler for
+                    // old packages, just wipe them !!!
+
+/*                    that.fire('error', [
                         {
                             'errCode'   : 'noHandler',
                             'tid'       : tid 
                         }
-                    ]);
+                    ]); */
  
                     offset += 9 + res.pdu.byte_count;
 
@@ -83,6 +86,10 @@
                    
                 }
 
+                // cleartimeout
+                
+                clearTimeout(that.handler[tid].timeout);
+                
 
                 // handle fc response
            
@@ -224,10 +231,20 @@
         };
 
         this._setCallbackHandler = function (handler, packet) {
-        
+
+            var that = this;
+
+            var timeout = setTimeout(function () {
+
+                handler.reject({ errCode: 'timeout' });
+                that.fire('error', [ { 'errCode' : 'timeout' } ]);
+
+            }, 1000);
+
             this.handler[this.id] = {
                 'callback'      : handler,
-                'requestPacket' : packet
+                'requestPacket' : packet,
+                'timeout'       : timeout
             };
 
         };

@@ -18,24 +18,24 @@
             
                 con.socketId = createInfo.socketId;
            
-                chrome.sockets.tcp.connect(
-                    con.socketId,
-                    con.host,
-                    con.port,
-                    function (result) {
+                    chrome.sockets.tcp.connect(
+                        con.socketId,
+                        con.host,
+                        con.port,
+                        function (result) {
                   
-                        if (result !== 0) {
+                            if (result !== 0) {
                         
-                            defer.reject({ errCode: result });
-                            chrome.sockets.tcp.destroy(that.socketId);
+                                defer.reject({ errCode: 'connectionError', result: result });
+                                chrome.sockets.tcp.destroy(that.socketId);
 
-                            return;
+                                return;
 
-                        }
-
-                        defer.resolve(new ModbusClient(con, chrome.sockets)); 
+                            }
+            
+                            defer.resolve(new ModbusClient(con)); 
                     
-                    });
+                });
 
             });
 

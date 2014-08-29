@@ -20,13 +20,14 @@
         this._start = false;
         this._counter = -1;
         this._id = 0;
+        this._exTime = 10000000;
 
 
         var that = this;
 
         this._client.on('error', function () {
         
-            that._fire('error', arguments);
+            that.fire('error', arguments);
 
         });
 
@@ -70,20 +71,67 @@
         
         };
 
-        this.iid = setInterval(function () {
-      
-            if (!that._start) {
-                return;
-            }
+        if (!this._duration) {
+        
+            this._freeLoop = function () {
+            
+                if (!that._start) {
+                    return;
+                }
 
-            that._confirmTermination();
-            that._resetExecutionFlags();
-            that._callHandlers();
+                // start timer
+                var start           = new Date().getTime(),
+                    cntr            = that._id,
+                    allHandler      = [],
+                    finishHandler   = function () {
+                        cntr -= 1;
 
-            that._counter = (that._counter + 1) % 1000;
+                        if (cntr === 0) {
+                            var end = new Date().getTime();
 
-        }, this._duration);
+                            that._exTime = end - start;
 
+                            // remove handler
+                            for (var j in allHandler) {
+                                that.off(allHandler[j]);
+                            }
+
+                            that._freeLoop();
+                        }
+                    };
+
+
+
+                for (var i in that._handler) {
+                    
+                    var h = that.on(i, finishHandler);
+
+                    allHandler.push(h); 
+
+                }
+
+                that._callHandlers();
+
+            
+            };
+
+        } else {
+
+            this.iid = setInterval(function () {
+          
+                if (!that._start) {
+                    return;
+                }
+
+                that._confirmTermination();
+                that._resetExecutionFlags();
+                that._callHandlers();
+
+                that._counter = (that._counter + 1) % 1000;
+
+            }, this._duration);
+
+        }
      
     };
 
@@ -237,6 +285,10 @@
 
         this._counter = -1;
         this._start = true; 
+
+        if (!this._duration) {
+            this._freeLoop(); 
+        }
 
     
     });
