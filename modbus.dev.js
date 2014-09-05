@@ -67,8 +67,16 @@
 
         this._cbList[name].push(func);
 
-        return this;
+        return { name: name, index: this._cbList[name].length-1 };
     
+    });
+
+    Events.method('off', function (id) {
+
+        this._cbList[id.name].splice(id.index);
+
+        return this;
+
     });
 
 })();
@@ -142,12 +150,15 @@
 
                 if (!that.handler[tid]) {
 
-                    that.fire('error', [
+                    // we do not need a handler for
+                    // old packages, just wipe them !!!
+
+/*                    that.fire('error', [
                         {
                             'errCode'   : 'noHandler',
                             'tid'       : tid 
                         }
-                    ]);
+                    ]); */
  
                     offset += 9 + res.pdu.byte_count;
 
@@ -157,10 +168,28 @@
                    
                 }
 
+                // cleartimeout
+                
+                clearTimeout(that.handler[tid].timeout);
+                
 
                 // handle fc response
            
-                var rHandler = that._responseHandler[res.pdu.fc];
+                var rHandler;
+
+                if (res.pdu.fc > 0x80) {
+                
+                    that.handler[tid].callback.reject();
+
+                    offset += 9 + res.pdu.byte_count;
+                    hasMore = offset < data.byteLength;
+
+                    continue;
+                
+                }
+
+                rHandler = that._responseHandler[res.pdu.fc];
+
 
                 if (!rHandler) {
 
@@ -298,10 +327,20 @@
         };
 
         this._setCallbackHandler = function (handler, packet) {
-        
+
+            var that = this;
+
+            var timeout = setTimeout(function () {
+
+                handler.reject({ errCode: 'timeout' });
+                that.fire('error', [ { 'errCode' : 'timeout' } ]);
+
+            }, 1000);
+
             this.handler[this.id] = {
                 'callback'      : handler,
-                'requestPacket' : packet
+                'requestPacket' : packet,
+                'timeout'       : timeout
             };
 
         };
@@ -489,13 +528,14 @@
         this._start = false;
         this._counter = -1;
         this._id = 0;
+        this._exTime = 10000000;
 
 
         var that = this;
 
         this._client.on('error', function () {
         
-            that._fire('error', arguments);
+            that.fire('error', arguments);
 
         });
 
@@ -539,20 +579,67 @@
         
         };
 
-        this.iid = setInterval(function () {
-      
-            if (!that._start) {
-                return;
-            }
+        if (!this._duration) {
+        
+            this._freeLoop = function () {
+            
+                if (!that._start) {
+                    return;
+                }
 
-            that._confirmTermination();
-            that._resetExecutionFlags();
-            that._callHandlers();
+                // start timer
+                var start           = new Date().getTime(),
+                    cntr            = that._id,
+                    allHandler      = [],
+                    finishHandler   = function () {
+                        cntr -= 1;
 
-            that._counter = (that._counter + 1) % 1000;
+                        if (cntr === 0) {
+                            var end = new Date().getTime();
 
-        }, this._duration);
+                            that._exTime = end - start;
 
+                            // remove handler
+                            for (var j in allHandler) {
+                                that.off(allHandler[j]);
+                            }
+
+                            that._freeLoop();
+                        }
+                    };
+
+
+
+                for (var i in that._handler) {
+                    
+                    var h = that.on(i, finishHandler);
+
+                    allHandler.push(h); 
+
+                }
+
+                that._callHandlers();
+
+            
+            };
+
+        } else {
+
+            this.iid = setInterval(function () {
+          
+                if (!that._start) {
+                    return;
+                }
+
+                that._confirmTermination();
+                that._resetExecutionFlags();
+                that._callHandlers();
+
+                that._counter = (that._counter + 1) % 1000;
+
+            }, this._duration);
+
+        }
      
     };
 
@@ -707,6 +794,10 @@
         this._counter = -1;
         this._start = true; 
 
+        if (!this._duration) {
+            this._freeLoop(); 
+        }
+
     
     });
 
@@ -738,24 +829,24 @@
             
                 con.socketId = createInfo.socketId;
            
-                chrome.sockets.tcp.connect(
-                    con.socketId,
-                    con.host,
-                    con.port,
-                    function (result) {
+                    chrome.sockets.tcp.connect(
+                        con.socketId,
+                        con.host,
+                        con.port,
+                        function (result) {
                   
-                        if (result !== 0) {
+                            if (result !== 0) {
                         
-                            defer.reject({ errCode: result });
-                            chrome.sockets.tcp.destroy(that.socketId);
+                                defer.reject({ errCode: 'connectionError', result: result });
+                                chrome.sockets.tcp.destroy(that.socketId);
 
-                            return;
+                                return;
 
-                        }
-
-                        defer.resolve(new ModbusClient(con, chrome.sockets)); 
+                            }
+            
+                            defer.resolve(new ModbusClient(con)); 
                     
-                    });
+                });
 
             });
 

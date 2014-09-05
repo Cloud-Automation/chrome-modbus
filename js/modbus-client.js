@@ -93,7 +93,21 @@
 
                 // handle fc response
            
-                var rHandler = that._responseHandler[res.pdu.fc];
+                var rHandler;
+
+                if (res.pdu.fc > 0x80) {
+                
+                    that.handler[tid].callback.reject();
+
+                    offset += 9 + res.pdu.byte_count;
+                    hasMore = offset < data.byteLength;
+
+                    continue;
+                
+                }
+
+                rHandler = that._responseHandler[res.pdu.fc];
+
 
                 if (!rHandler) {
 
