@@ -123,7 +123,11 @@
                 data    = resp.data;
 
             while (hasMore) {
-                
+
+                console.log('Incoming data length', data.byteLength);
+                console.log('Starting first DataView at', offset,7);
+
+
                 // read the header
                 var mbap    = new DataView(data, offset + 0, 7),
                     tid     = mbap.getUint16(0),
@@ -138,6 +142,8 @@
                     length          : len,
                     unit_id         : uid
                 };
+
+                console.log('PDU', (offset + 7), 2);
 
                 // read the pdu
             
@@ -294,11 +300,11 @@
         };
 
         this._responseHandler[6] = function (response, offset, data) {
-        
-            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
-                fc_data = [];
+       
+/*            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
+                fc_data = []; */
 
-            return fc_data;
+            return null;
         
         };
 

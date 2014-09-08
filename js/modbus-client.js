@@ -41,7 +41,7 @@
                 data    = resp.data;
 
             while (hasMore) {
-                
+
                 // read the header
                 var mbap    = new DataView(data, offset + 0, 7),
                     tid     = mbap.getUint16(0),
@@ -204,19 +204,19 @@
 
         this._responseHandler[5] = function (response, offset, data) {
         
-            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
-                fc_data = [];
+/*            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
+                fc_data = []; */
 
-            return fc_data;
+            return null;
         
         };
 
         this._responseHandler[6] = function (response, offset, data) {
-        
-            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
-                fc_data = [];
+       
+/*            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
+                fc_data = []; */
 
-            return fc_data;
+            return null;
         
         };
 
