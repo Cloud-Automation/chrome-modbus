@@ -140,8 +140,6 @@
                     unit_id         : uid
                 };
 
-                console.log('Receiving packet with tid', tid);
-
                 // read the pdu
             
                 var pdu = new DataView(data, offset + 7, 2);
@@ -359,8 +357,6 @@
         this._setCallbackHandler = function (handler, packet, id) {
 
             var that = this;
-
-            console.log('Set callback handler for request with id', id);
 
             var timeout = setTimeout(function () {
 
