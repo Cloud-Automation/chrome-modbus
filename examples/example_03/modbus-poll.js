@@ -8,10 +8,6 @@
 
         Events.call(this);
 
-        if (!client) {
-            throw new Error('No Modbus client defined!');
-        }
-
         this._client = client;
         this._duration = duration;
 
@@ -20,20 +16,19 @@
         this._start = false;
         this._counter = -1;
         this._id = 0;
-        this._exTime = 10000000;
 
 
         var that = this;
 
         this._client.on('error', function () {
         
-            that.fire('error', arguments);
+            that._fire('error', arguments);
 
         });
 
         this._confirmTermination = function () {
         
-            if (that._counter === -1) {
+            if (this._counter === -1) {
                 return;
             }
 
@@ -71,67 +66,20 @@
         
         };
 
-        if (!this._duration) {
-        
-            this._freeLoop = function () {
-            
-                if (!that._start) {
-                    return;
-                }
+        this.iid = setInterval(function () {
+      
+            if (!that._start) {
+                return;
+            }
 
-                // start timer
-                var start           = new Date().getTime(),
-                    cntr            = that._id,
-                    allHandler      = [],
-                    finishHandler   = function () {
-                        cntr -= 1;
+            that._confirmTermination();
+            that._resetExecutionFlags();
+            that._callHandlers();
 
-                        if (cntr === 0) {
-                            var end = new Date().getTime();
+            that._counter = (that._counter + 1) % 1000;
 
-                            that._exTime = end - start;
+        }, duration);
 
-                            // remove handler
-                            for (var j in allHandler) {
-                                that.off(allHandler[j]);
-                            }
-
-                            that._freeLoop();
-                        }
-                    };
-
-
-
-                for (var i in that._handler) {
-                    
-                    var h = that.on(i, finishHandler);
-
-                    allHandler.push(h); 
-
-                }
-
-                that._callHandlers();
-
-            
-            };
-
-        } else {
-
-            this.iid = setInterval(function () {
-          
-                if (!that._start) {
-                    return;
-                }
-
-                that._confirmTermination();
-                that._resetExecutionFlags();
-                that._callHandlers();
-
-                that._counter = (that._counter + 1) % 1000;
-
-            }, this._duration);
-
-        }
      
     };
 
@@ -285,10 +233,6 @@
 
         this._counter = -1;
         this._start = true; 
-
-        if (!this._duration) {
-            this._freeLoop(); 
-        }
 
     
     });

@@ -1,9 +1,12 @@
 
-all: dev min
+SRC	= src
+BIN	= bin
 
-dev: js/sugar.js js/events.js js/modbus-client.js js/modbus-poll.js js/modbus.js
-	cat js/sugar.js js/events.js js/modbus-client.js js/modbus-poll.js js/modbus.js > modbus.min.js	
+min: $(SRC)/sugar.js $(SRC)/events.js $(SRC)/modbus-client.js $(SRC)/modbus-loop.js $(SRC)/modbus.js $(SRC)/register.js
+	uglifyjs -c drop_console=true $(SRC)/sugar.js $(SRC)/events.js $(SRC)/modbus-client.js $(SRC)/modbus-loop.js $(SRC)/modbus.js $(SRC)/register.js -o $(BIN)/modbus.min.js	
 
-min: js/sugar.js js/events.js js/modbus-client.js js/modbus-poll.js js/modbus.js
-	uglifyjs -c drop_console=true js/sugar.js js/events.js js/modbus-client.js js/modbus-poll.js js/modbus.js -o modbus.min.js	
+dev: $(SRC)/sugar.js $(SRC)/events.js $(SRC)/modbus-client.js $(SRC)/modbus-loop.js $(SRC)/modbus.js $(SRC)/register.js
+	cat $(SRC)/sugar.js $(SRC)/events.js $(SRC)/modbus-client.js $(SRC)/modbus-loop.js $(SRC)/modbus.js $(SRC)/register.js > $(BIN)/modbus.min.js	
+
+
 

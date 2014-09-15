@@ -29,20 +29,21 @@
 
         this.state      = 'offline';
 
-
         this.id         = 0;
         this.handler    = { };
 
-        var that        = this;
+        var that = this;
 
-        this._receiveListener = function (resp) { 
+
+        this._receiveListener = function (info) { 
+
 
             var offset  = 0,
                 hasMore = true,
-                data    = resp.data;
+                data = info.data;
 
             while (hasMore) {
-
+                
                 // read the header
                 var mbap    = new DataView(data, offset + 0, 7),
                     tid     = mbap.getUint16(0),
@@ -69,15 +70,12 @@
 
                 if (!that.handler[tid]) {
 
-                    // we do not need a handler for
-                    // old packages, just wipe them !!!
-
-/*                    that.fire('error', [
+                    that.fire('error', [
                         {
-                            'errCode'   : 'noHandler',
+                            'errCode'   : 'noUserHandler',
                             'tid'       : tid 
                         }
-                    ]); */
+                    ]);
  
                     offset += 9 + res.pdu.byte_count;
 
@@ -87,28 +85,10 @@
                    
                 }
 
-                // cleartimeout
-                
-                clearTimeout(that.handler[tid].timeout);
-                
 
                 // handle fc response
            
-                var rHandler;
-
-                if (res.pdu.fc > 0x80) {
-               
-                    that.handler[tid].callback.reject();
-
-                    offset += 9 + res.pdu.byte_count;
-                    hasMore = offset < data.byteLength;
-
-                    continue;
-                
-                }
-
-                rHandler = that._responseHandler[res.pdu.fc];
-
+                var rHandler = that._responseHandler[res.pdu.fc];
 
                 if (!rHandler) {
 
@@ -153,6 +133,9 @@
             }
 
         };
+
+
+
 
         this._responseHandler = { };
 
@@ -205,19 +188,19 @@
 
         this._responseHandler[5] = function (response, offset, data) {
         
-/*            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
-                fc_data = []; */
+            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
+                fc_data = [];
 
-            return null;
+            return fc_data;
         
         };
 
         this._responseHandler[6] = function (response, offset, data) {
-       
-/*            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
-                fc_data = []; */
+        
+            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
+                fc_data = [];
 
-            return null;
+            return fc_data;
         
         };
 
@@ -234,59 +217,21 @@
 
         this._createNewId = function () {
 
-            this.id = (this.id + 1) % 10000;
+            this.id = (this.id + 1) % 100000;
         
         };
 
         this._sendPacket = function (packet) {
-            
-            if (!this._pQueue) {
-                this._pQueue = [];
-            }
 
-            if (arguments.length > 0) {
-                this._pQueue.push(packet);
-            }
-
-
-            if (this._isWaiting) {
-                return;
-            }
-
-            if (this._pQueue.length === 0) {
-                return;
-            }
-
-            this._isWaiting = true;
-
-            var that = this;
-
-            chrome.sockets.tcp.send(
-                this.con.socketId, this._pQueue.shift(), function () {
-       
-                that._isWaiting = false;
-
-                that._sendPacket();
-            
-            });
+            chrome.sockets.tcp.send(this.con.socketId, packet, function () { });
 
         };
 
-        this._setCallbackHandler = function (handler, packet, id) {
-
-            var that = this;
-
-            var timeout = setTimeout(function () {
-
-                handler.reject({ errCode: 'timeout' });
-                //that.fire('error', [ { 'errCode' : 'timeout' , 'data': packet } ]);
-
-            }, 10000);
-
-            this.handler[id] = {
+        this._setCallbackHandler = function (handler, packet) {
+        
+            this.handler[this.id] = {
                 'callback'      : handler,
-                'requestPacket' : packet,
-                'timeout'       : timeout
+                'requestPacket' : packet
             };
 
         };
@@ -302,9 +247,7 @@
             var packet  = new ArrayBuffer(12),      // determine the length in byte
                 body    = new DataView(packet, 7, 5);
 
-            var id = this.id;
-
-            this._createMBAP(packet, id);
+            this._createMBAP(packet, this.id);
 
             body.setUint8(BODY_FC, READ_COILS);     // Function Code Read Coils = 1
             body.setUint16(BODY_START, regNo);      // Start Register
@@ -312,7 +255,7 @@
 
             var data = new DataView(packet, 0, 12);
 
-            this._setCallbackHandler(defer, packet, id);
+            this._setCallbackHandler(defer, packet);
 
             this._createNewId();
 
@@ -331,16 +274,15 @@
             }
 
             var packet  = new ArrayBuffer(12),        
-                body    = new DataView(packet, 7, 5),
-                id      = this.id;
+                body    = new DataView(packet, 7, 5);
 
-            this._createMBAP(packet, id);
+            this._createMBAP(packet, this.id);
 
             body.setUint8(BODY_FC, READ_INPUT_REGISTERS);
             body.setUint16(BODY_START, regNo);
             body.setUint16(BODY_COUNT, regCount);
 
-            this._setCallbackHandler(defer, packet, id);
+            this._setCallbackHandler(defer, packet);
 
             this._createNewId();
 
@@ -359,16 +301,15 @@
             }
 
             var packet  = new ArrayBuffer(12),
-                body    = new DataView(packet, 7, 5),
-                id      = this.id;
+                body    = new DataView(packet, 7, 5);
 
-            this._createMBAP(packet, id);
+            this._createMBAP(packet, this.id);
 
             body.setUint8(BODY_FC, WRITE_SINGLE_COIL);
             body.setUint16(BODY_START, addr);
             body.setUint16(BODY_COUNT, value?65280:0);
         
-            this._setCallbackHandler(defer, packet, id);
+            this._setCallbackHandler(defer, packet);
 
             this._createNewId();
 
@@ -387,16 +328,15 @@
             }
 
             var packet  = new ArrayBuffer(12),
-                body    = new DataView(packet, 7, 5),
-                id      = this.id;
+                body    = new DataView(packet, 7, 5);
 
-            this._createMBAP(packet, id);
+            this._createMBAP(packet, this.id);
 
             body.setUint8(BODY_FC, WRITE_SINGLE_REGISTER);
             body.setUint16(BODY_START, regNo);
             body.setUint16(BODY_COUNT, value);
 
-            this._setCallbackHandler(defer, packet, id);
+            this._setCallbackHandler(defer);
 
             this._createNewId();
 
@@ -407,6 +347,7 @@
         };
 
         chrome.sockets.tcp.onReceive.addListener(this._receiveListener);
+
 
     };
 
