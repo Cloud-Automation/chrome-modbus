@@ -1,354 +1,369 @@
-(function () {
+ModbusLoop = function (client, duration) {
 
-    ModbusLoop = function (client, duration) {
+    if (!(this instanceof ModbusLoop)) {
+        return new ModbusLoop(client, duration);
+    }
+
+    Events.call(this);
+
+    if (!client) {
+        throw new Error('No Modbus client defined!');
+    }
+
+    this._client    = client;
+    this._duration  = duration;
+
+    this._handler   = { };
+
+    this._start     = false;
+    this._counter   = -1;
+    this._id        = 0;
+    this._exTime    = 10000000;
+
+
+    this._client.on('error', function () {
     
-        if (!(this instanceof ModbusLoop)) {
-            return new ModbusLoop(client, duration);
+        this.fire('error', arguments);
+
+    });
+
+    this._confirmTermination = function () {
+    
+        if (this._counter === -1) {
+            return;
         }
 
-        Events.call(this);
+        for (var i in this._handler) {
+        
+            if (!this._handler[i].executed) {
 
-        if (!client) {
-            throw new Error('No Modbus client defined!');
+                this.stop();
+                this.fire('error', [{ 'errCode': 'loopOutOfSync' }]);
+                return;
+            
+            }
+
         }
 
-        this._client    = client;
-        this._duration  = duration;
+    };
 
-        this._handler   = { };
-
-        this._start     = false;
-        this._counter   = -1;
-        this._id        = 0;
-        this._exTime    = 10000000;
-
-
-        this._client.on('error', function () {
+    this._resetExecutionFlags = function () {
+    
+        for (var i in this._handler) {
         
-            this.fire('error', arguments);
+            this._handler[i].executed = false;
 
-        });
+        }
 
-        this._confirmTermination = function () {
+    };
+
+    this._callHandlers = function () {
+   
+        for (var i in this._handler) {
         
-            if (this._counter === -1) {
+            this._handler[i].func();
+
+        }
+    
+    };
+
+    var that = this;
+
+    if (!this._duration) {
+   
+        console.log('ModbusLoop', 'No duration, starting free loop.');
+
+        this._freeLoop = function () {
+        
+            if (!that._start) {
                 return;
             }
 
-            for (var i in this._handler) {
-            
-                if (!this._handler[i].executed) {
+            // start timer
+            var start           = new Date().getTime(),
+                cntr            = that._id,
+                allHandler      = [],
+                finishHandler   = function () {
 
-                    this.stop();
-                    this.fire('error', [{ 'errCode': 'loopOutOfSync' }]);
-                    return;
+                    cntr -= 1;
+
+                    if (cntr === 0) {
+                        var end = new Date().getTime();
+
+                        that._exTime = end - start;
+
+                        // remove handler
+                        for (var j in allHandler) {
+
+                            that.off(allHandler[j]);
+
+                        }
+
+                        that._freeLoop();
+
+                    }
+                };
+
+
+
+            for (var i in that._handler) {
                 
-                }
+                var h = that.on(i, finishHandler);
+
+                allHandler.push(h); 
 
             }
 
+            that._callHandlers();
+
+        
         };
 
-        this._resetExecutionFlags = function () {
-        
-            for (var i in this._handler) {
-            
-                this._handler[i].executed = false;
+    } else {
 
+        console.log('ModbusLoop', 'Starting loop with duration', this._duration);
+
+        this.iid = setInterval(function () {
+      
+            if (!that._start) {
+                return;
             }
 
+            that._confirmTermination();
+            that._resetExecutionFlags();
+            that._callHandlers();
+
+            that._counter = (that._counter + 1) % 1000;
+
+        }, this._duration);
+
+    }
+ 
+};
+
+ModbusLoop.inherits(Events);
+
+ModbusLoop.method('readCoils', function (start, count) {
+
+    var that    = this,
+        id      = this._id,
+        handler = function () {
+        
+            that._client.readCoils(start, count).then(function (data) {
+
+                that._handler[id].executed = true;
+                that.fire(id, data);
+
+            }).fail(function () {
+               
+                that.stop(); 
+                that.fire('error', [
+                    { 
+                        'errCode' : id, 
+                        'args'    : arguments 
+                    }
+                ]);
+
+            });
+
         };
 
-        this._callHandlers = function () {
-       
-            for (var i in this._handler) {
-            
-                this._handler[i].func();
+    this._handler[id] = { };
+    this._handler[id].func = handler;
+    this._handler[id].executed = false;
 
-            }
+    return this._id++;
+
+});
+
+ModbusLoop.method('readInputRegisters', function (start, count) {
+
+    var that    = this,
+        id      = this._id,
+        handler = function () {
         
+            that._client.readInputRegisters(start, count).then(function () {
+
+                that._handler[id].executed = true;
+                that.fire(id, arguments); 
+
+            }).fail(function () {
+               
+                that.stop(); 
+                that.fire('error', [
+                    { 
+                        'errCode' : id, 
+                        'args'    : arguments 
+                    }
+                ]);
+
+            });
+
         };
 
-        var that = this;
+    this._handler[id]           = { };
+    this._handler[id].func      = handler;
+    this._handler[id].executed  = false;
 
-        if (!this._duration) {
+    return this._id++;
+
+});
+
+ModbusLoop.method('writeSingleCoil', function (reg, value) {
+
+    var that    = this,
+        id      = this._id,
+        handler = function () {
         
+            that._client.writeSingleCoil(reg, value).then(function () {
 
-            this._freeLoop = function () {
-            
-                if (!that._start) {
-                    return;
-                }
+                that._handler[id].executed = true;
+                that.fire(id, arguments); 
 
-                // start timer
-                var start           = new Date().getTime(),
-                    cntr            = that._id,
-                    allHandler      = [],
-                    finishHandler   = function () {
-                        cntr -= 1;
+            }).fail(function () {
+               
+                that.stop(); 
+                that.fire('error', [
+                    { 
+                        'errCode' : id, 
+                        'args'    : arguments 
+                    }
+                ]);
 
-                        if (cntr === 0) {
-                            var end = new Date().getTime();
+            });
 
-                            that._exTime = end - start;
+        };
 
-                            // remove handler
-                            for (var j in allHandler) {
-                                that.off(allHandler[j]);
-                            }
+    this._handler[id] = { };
+    this._handler[id].func = handler;
+    this._handler[id].executed = false;
 
-                            that._freeLoop();
-                        }
-                    };
+    return this._id++;
+
+});
+
+ModbusLoop.method('writeSingleRegister', function (reg, value) {
+
+    var that    = this,
+        id      = this._id,
+        handler = function () {
+        
+            that._client.writeSingleRegister(reg, value).then(function () {
+
+                that._handler[id].executed = true;
+                that.fire(id, arguments); 
+
+            }).fail(function () {
+               
+                that.stop(); 
+                that.fire('error', [
+                    { 
+                        'errCode' : id, 
+                        'args'    : arguments 
+                    }
+                ]);
+
+            });
+
+        };
+
+    this._handler[id] = { };
+    this._handler[id].func = handler;
+    this._handler[id].executed = false;
+
+    return this._id++;
+
+});
+
+ModbusLoop.method('createRegister', function (cls, startReg) {
 
 
+    console.log('Create Single Command/Status Register.');
 
-                for (var i in that._handler) {
-                    
-                    var h = that.on(i, finishHandler);
+    var reg = new cls(this._client, startReg),
+        id  = this.readInputRegisters(startReg, 2); 
 
-                    allHandler.push(h); 
+    this.on(id, function (data) {
+    
+        reg.update_status(data[0], data[1]);
+    
+    });
 
-                }
+    return reg;
 
-                that._callHandlers();
+});
 
-            
-            };
+ModbusLoop.method('createMultipleRegisters', function (clsses, startReg, count) {
 
-        } else {
+    console.log('ModbusLoop', 'Create multiple Command/Status Register.', arguments);
 
-            this.iid = setInterval(function () {
-          
-                if (!that._start) {
-                    return;
-                }
+    var ret = [], 
+        j   = 0, 
+        id;
 
-                that._confirmTermination();
-                that._resetExecutionFlags();
-                that._callHandlers();
+    for (var i = 0; i < count; i += 1) {
+    
+        ret.push(
+            new clsses[j](
+                this._client, 
+                startReg + (i * 4)));
+    
+        if (j < clsses.length - 1) {
 
-                that._counter = (that._counter + 1) % 1000;
-
-            }, this._duration);
+            j += 1;
 
         }
-     
-    };
 
-    ModbusLoop.inherits(Events);
+    }
 
-    ModbusLoop.method('readCoils', function (start, count) {
+    console.log('ModbusLoop', 'Register created', ret);
 
-        var that    = this,
-            id      = this._id,
-            handler = function () {
-            
-                that._client.readCoils(start, count).then(function (data) {
+    id = this.readInputRegisters(startReg, count * 4);
 
-                    that._handler[id].executed = true;
-                    that.fire(id, data);
+    console.log('ModbusLoop', 'Loop update id is', id);
 
-                }).fail(function () {
-                   
-                    that.stop(); 
-                    that.fire('error', [
-                        { 
-                            'errCode' : id, 
-                            'args'    : arguments 
-                        }
-                    ]);
-
-                });
-
-            };
-
-        this._handler[id] = { };
-        this._handler[id].func = handler;
-        this._handler[id].executed = false;
-
-        return this._id++;
-    
-    });
-
-    ModbusLoop.method('readInputRegisters', function (start, count) {
-
-        var that    = this,
-            id      = this._id,
-            handler = function () {
-            
-                that._client.readInputRegisters(start, count).then(function () {
-
-                    that._handler[id].executed = true;
-                    that.fire(id, arguments); 
-
-                }).fail(function () {
-                   
-                    that.stop(); 
-                    that.fire('error', [
-                        { 
-                            'errCode' : id, 
-                            'args'    : arguments 
-                        }
-                    ]);
-
-                });
-
-            };
-
-        this._handler[id]           = { };
-        this._handler[id].func      = handler;
-        this._handler[id].executed  = false;
-
-        return this._id++;
-    
-    });
-
-    ModbusLoop.method('writeSingleCoil', function (reg, value) {
-
-        var that    = this,
-            id      = this._id,
-            handler = function () {
-            
-                that._client.writeSingleCoil(reg, value).then(function () {
-
-                    that._handler[id].executed = true;
-                    that.fire(id, arguments); 
-
-                }).fail(function () {
-                   
-                    that.stop(); 
-                    that.fire('error', [
-                        { 
-                            'errCode' : id, 
-                            'args'    : arguments 
-                        }
-                    ]);
-
-                });
-
-            };
-
-        this._handler[id] = { };
-        this._handler[id].func = handler;
-        this._handler[id].executed = false;
-
-        return this._id++;
-    
-    });
-
-    ModbusLoop.method('writeSingleRegister', function (reg, value) {
-
-        var that    = this,
-            id      = this._id,
-            handler = function () {
-            
-                that._client.writeSingleRegister(reg, value).then(function () {
-
-                    that._handler[id].executed = true;
-                    that.fire(id, arguments); 
-
-                }).fail(function () {
-                   
-                    that.stop(); 
-                    that.fire('error', [
-                        { 
-                            'errCode' : id, 
-                            'args'    : arguments 
-                        }
-                    ]);
-
-                });
-
-            };
-
-        this._handler[id] = { };
-        this._handler[id].func = handler;
-        this._handler[id].executed = false;
-
-        return this._id++;
-    
-    });
-
-    ModbusLoop.method('createRegister', function (cls, startReg) {
+    this.on(id, function (data) {
    
-
-        console.log('Create Single Command/Status Register.');
-
-        var reg = new cls(this._client, startReg),
-            id  = this.readInputRegisters(startReg, 2); 
-
-        this.on(id, function (data) {
+        for (var k = 0; k < count; k += 1) {
         
-            reg.update_status(data[0], data[1]);
-        
-        });
-
-        return reg;
-    
-    });
-
-    ModbusLoop.method('createMultipleRegisters', function (clsses, startReg, count) {
-
-        console.log('Create multiple Command/Status Register.');
-
-        var ret = [], j = 0, id;
-
-        for (var i = 0; i < count; i += 1) {
-        
-            ret.push(new clsses[j](this._client, startReg + (i * 4)));
-        
-            if (j < clsses.length - 1) {
-                j += 1;
-            }
+            ret[k].update_status(
+                data[k * 4], 
+                data[(k * 4) + 1]);
 
         }
-
-        id = this.readInputRegisters(startReg, count * 4);
-
-        this.on(id, function (data) {
-        
-            for (var k = 0; k < count; k += 1) {
-            
-                ret[k].update_status(data[k * 4], data[k * 4 + 1]);
-
-            }
-        
-        });
-
-        return ret;
     
     });
 
-    ModbusLoop.method('remove', function (id) {
-    
-        if (!this._handler[id]) {
-            return false;
-        }
+    return ret;
 
-        delete this._handler[id];
+});
 
-        return true;
-    
-    });
+ModbusLoop.method('remove', function (id) {
 
-    ModbusLoop.method('start', function () {
+    if (!this._handler[id]) {
+        return false;
+    }
 
-        this._counter = -1;
-        this._start = true; 
+    delete this._handler[id];
 
-        if (!this._duration) {
-            this._freeLoop(); 
-        }
+    return true;
 
-    
-    });
+});
 
-    ModbusLoop.method('stop', function () {
-    
-        this._start = false;
-    
-    });
+ModbusLoop.method('start', function () {
+
+    this._counter = -1;
+    this._start = true; 
+
+    if (!this._duration) {
+        this._freeLoop(); 
+    }
 
 
-})();
+});
+
+ModbusLoop.method('stop', function () {
+
+    this._start = false;
+
+});
