@@ -91,6 +91,9 @@ var ModbusServerClient = function (clientSocketId, server) {
 
             }
 
+            this._server.fire('read_input_registers', 
+                              [ request.body.adr, request.body.cnt ]);
+
         }
 
         if (request.body.fc === 0x06) {
@@ -103,7 +106,7 @@ var ModbusServerClient = function (clientSocketId, server) {
 
             this._server.setInputRegister(request.body.adr, request.body.val);
 
-            this._server.fire('writeInputRegister', [request.body.adr, request.body.val]);
+            this._server.fire('write_single_register', [request.body.adr, request.body.val]);
 
             ret_body_dv.setUint8(0, 6); // fc
             ret_body_dv.setUint16(1, request.body.adr);
@@ -213,14 +216,14 @@ var ServerRegister = function (start, server) {
 
     this._status    = {
     
-        'stateflag_1'       : false,
-        'stateflag_2'       : false,
-        'stateflag_3'       : false,
-        'stateflag_4'       : false,
+        'stateflag_1'       : 0,
+        'stateflag_2'       : 0,
+        'stateflag_3'       : 0,
+        'stateflag_4'       : 0,
         'stateword'         : 0,
         'command_counter'   : 0,
-        'command_ex'        : false,
-        'command_fail'      : false,
+        'command_ex'        : 0,
+        'command_fail'      : 0,
         'arg'               : 0
 
     };
@@ -233,42 +236,56 @@ var ServerRegister = function (start, server) {
         s += this._status.stateflag_2?2:0;
         s += this._status.stateflag_3?4:0;
         s += this._status.stateflag_4?8:0;
-        s += this._status.stateword & 0xFF >> 4;
-        s += this._status.command_count & 0x07 >> 11;
-        s += this._status.command_ex?0x4000:0 >> 14;
-        s += this._status.command_fail?0x8000:0 >> 15;
+        s += this._status.stateword << 4;
+        s += this._status.command_counter << 11;
+        s += this._status.command_ex << 14;
+        s += this._status.command_fail << 15;
 
-        this._server.setInputRegister(this._start + 1, this._status.arg);
         this._server.setInputRegister(this._start, s);
+        this._server.setInputRegister(this._start + 1, this._status.arg);
 
+        console.log('ServerRegister', 'Updated Server Register', s, s.toString(16), s.toString(2));
     
     };
 
     this._evaluate = function (val) {
 
-        this._command.count = val & 0x0007 << 0;
-        this._command.id    = val & 0x7FF8 << 3;
-        this._command.ex    = val & 0x8000 << 15;
+        this._command.count = (val & 0x0007) >> 0;
+        this._command.id    = (val & 0x7FF8) >> 3;
+        this._command.ex    = (val & 0x8000) >> 15;
+
+        if (!this._command.ex) {
+            console.log('ServerRegister', 'No execution flag.');
+            return;
+        }
 
         // always succeed
 
+        console.log("ServerRegister", 'New command', this._command);
 
         this._status.command_counter = this._command.count;
-        this._status.command_ex = true;
+        this._status.command_ex = 1;
+
+        console.log('ServerRegister', 'Updated status', this._status);
 
         this._update_status();
 
     };
 
-    this._server.on('writeSingleRegister', function (start, val) {
-    
-        if (start === this._start + 2) {
-        
-            this._evaluate(val);
+    this._server.on('write_single_register', function (start, val) {
+  
+        console.log('ServerRegister', 'WriteSingleRegister executed.');
 
+        if (start !== this._start + 2) {
+            console.log('ServerRegister', 'Not this command register.', start, this._start + 2);
+            return;
         }
 
-    });
+        console.log('ServerRegister', 'Update on this command register.');
+        
+        this._evaluate(val);
+
+    }.bind(this));
 
 };
 
@@ -376,6 +393,10 @@ ModbusServer.method('setInputRegister', function (adr, value) {
 });
 
 ModbusServer.method('getInputRegister', function (adr) {
+
+    if (!this._input_register[this._input_register_offset + adr]) {
+        this._input_register[this._input_register_offset + adr] = 0;
+    }
 
     return this._input_register[this._input_register_offset + adr];
 

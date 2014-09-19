@@ -11,7 +11,7 @@ ModbusLoop = function (client, duration) {
     }
 
     this._client    = client;
-    this._duration  = duration;
+    this._duration  = duration||0;
 
     this._handler   = { };
 
@@ -71,7 +71,7 @@ ModbusLoop = function (client, duration) {
 
     if (!this._duration) {
    
-        console.log('ModbusLoop', 'No duration, starting free loop.');
+        console.log('ModbusLoop', 'No duration, starting free loop.', this._duration);
 
         this._freeLoop = function () {
         
@@ -278,7 +278,7 @@ ModbusLoop.method('writeSingleRegister', function (reg, value) {
 ModbusLoop.method('createRegister', function (cls, startReg) {
 
 
-    console.log('Create Single Command/Status Register.');
+    console.log('ModbusLoop', 'Create Single Command/Status Register.');
 
     var reg = new cls(this._client, startReg),
         id  = this.readInputRegisters(startReg, 2); 

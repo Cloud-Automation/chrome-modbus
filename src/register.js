@@ -62,10 +62,10 @@ Register = function (client, start) {
 
         this._inExecution = true;
 
-        var first = this._queue.pop(),
+        var first   = this._queue.pop(),
             command = first.command,
-            param = first.param,
-            defer = first.deferred;
+            param   = first.param,
+            defer   = first.deferred;
     
         this._cmd_id = (this._cmd_id + 1) % 8;
 
@@ -75,7 +75,7 @@ Register = function (client, start) {
 
         this.cmd_reg = this._cmd_id + cmd + ex_flag;
 
-        console.log('Register', 'Writing to modbus server.');
+        console.log('Register', 'Writing to modbus server.', this.cmd_reg);
 
         this.client.writeSingleRegister(this.start + 2, this.cmd_reg)
             .fail(function (err) {
@@ -111,6 +111,7 @@ Register = function (client, start) {
                     if (that.status.cmd_count === that._cmd_id && 
                         that.status.cmd_ex) { 
 
+                        console.log('Register', 'Command executed.', that.status);
  
                         that.off(handler_id);
                         clearTimeout(timeout_id);

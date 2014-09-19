@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+
+    <head>
+        <title>Chrome Modbus Server with Command/Status Register</title>
+    </head>
+
+    <body>
+
+        <div id="server_setup">
+            <h1>Server Setup</h1>
+
+            <label for="host">Host</label>
+            <input id="host" type="text">
+
+            <label for="port">Port</label>
+            <input id="port" type="number">
+
+            <button id="start_server">Start</button>
+
+        </div>
+
+        <div id="input_registers">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Value ( Dez )</th>
+                        <th>Value ( Hex )</th>
+                        <th>Value ( Bin )</th>
+                    </tr>
+                </thead>
+                <tbody id="input_registers_body">
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <script src="jquery.min.js"></script>
+        <script src="modbus.min.js"></script>
+        <script src="main.js"></script>
+
+    </body>
+
+</html>

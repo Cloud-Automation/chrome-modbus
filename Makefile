@@ -13,7 +13,7 @@ dev: $(SRC)/sugar.js $(SRC)/events.js $(SRC)/modbus-client.js $(SRC)/modbus-loop
 all-examples: example_05 example_04 example_03 example_02 example_01
 
 example_05: dev
-	cp $(BIN)/modbus.min.js examples_example_05/
+	cp $(BIN)/modbus.min.js examples/example_05/
 
 example_04: dev
 	cp $(BIN)/modbus.min.js examples/example_04/

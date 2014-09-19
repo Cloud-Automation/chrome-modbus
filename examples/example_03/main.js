@@ -24,8 +24,7 @@ Modbus.connect('127.0.0.1', 8001)
   
 
         var loop    = new ModbusLoop(client),
-            regs    = loop.createMultipleRegisters([Register], 12296, 1),
-            reg     = regs[0];
+            reg     = loop.createRegister(Register, 12288);
 
 
         reg.on('update_status', function (data) {

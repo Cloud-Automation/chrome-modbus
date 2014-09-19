@@ -1,14 +1,10 @@
 
-var server = new ModbusServer('127.0.0.1', 8001);
+chrome.app.runtime.onLaunched.addListener(function () {
 
-server.createNewRegister(0);
+    chrome.app.window.create('window.html', {
 
-server.start();
+        'state': 'maximized'
 
-/* Missing something like this
+    });
 
-chrome.app.runtime.onStopped.addListener(function () {
-
-    chrome.sockets.tcpServer.close(socketId);
-
-}); */
+});
