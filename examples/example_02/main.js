@@ -17,11 +17,10 @@
 
     log('Start connection...');
 
-CloudAutomation.ModbusClient.connect('192.168.1.1')
+Modbus.connect('127.0.0.1', 8001)
     .then(function (client) { 
 
-        log('Connection established.');
-  
+        log('Connection established.');  
  
         var start = false, wr = 0;
 
