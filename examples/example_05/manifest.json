@@ -1,5 +1,5 @@
 {
-    "name": "Chrome Modbus Server with Command/Status Register Communication",
+    "name": "Chrome Modbus Example 05 - Server with Command/Status Register Communication",
     "description": "Development Tool for Chrome Automation / Modbus Server",
     "version": "0.1",
     "permissions": [ 

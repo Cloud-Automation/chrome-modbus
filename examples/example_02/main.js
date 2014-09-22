@@ -17,49 +17,61 @@
 
     log('Start connection...');
 
-Modbus.connect('127.0.0.1', 8001)
-    .then(function (client) { 
+    $('#console').hide();
 
-        log('Connection established.');  
- 
-        var start = false, wr = 0;
+    $('#connect_button').on('click', function () {
 
-        var write = function () {
-        
-            client.writeSingleRegister(12288, wr++).then(function () {
-            
-                log('Writing Register done!');
+        var host = $('#host').val(),
+            port = parseInt($('#port').val()),
+            offset = parseInt($('#offset').val());
+
+        Modbus.connect(host, port)
+            .then(function (client) { 
+
+                log('Connection established.');  
+
+                $('#connect').hide();
+                $('#console').show();
+
+                var start = false, wr = 0;
+
+                var write = function () {
+                
+                    client.writeSingleRegister(offset, wr++).then(function () {
+                    
+                        log('Writing Register done!');
+
+                    }).fail(function () {
+                    
+                        log('Writing Register failed.');
+                    
+                    });
+                
+                };
+
+                var read = function () {
+                
+                    client.readInputRegisters(offset, 1).then(function (reg) {
+                    
+                        log('Reading ' + reg[0] + ' from register.');
+                    
+                    }).fail(function (err) {
+                    
+                        log('Reading register failed (ErrCode : ' + err.errCode + ')');
+                    
+                    });
+                
+                };
+
+                document.getElementById('write').addEventListener('click', write);
+                document.getElementById('read').addEventListener('click', read);
+                        
 
             }).fail(function () {
-            
-                log('Writing Register failed.');
-            
+
+                log('Connection failed.');
+
             });
-        
-        };
 
-        var read = function () {
-        
-            client.readInputRegisters(12288, 1).then(function (reg) {
-            
-                log('Reading ' + reg[0] + ' from register.');
-            
-            }).fail(function (err) {
-            
-                log('Reading register failed (ErrCode : ' + err.errCode + ')');
-            
-            });
-        
-        };
-
-        document.getElementById('write').addEventListener('click', write);
-        document.getElementById('read').addEventListener('click', read);
-                
-
-    }).fail(function () {
-
-        log('Connection failed.');
-
-    });
-
+        });
 })();
