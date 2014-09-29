@@ -1,5 +1,5 @@
 {
-    "name": "Chrome Modbus Server",
+    "name": "Chrome Modbus Example 04 - Simple Server Example",
     "description": "Development Tool for Chrome Automation / Modbus Server",
     "version": "0.1",
     "permissions": [ 

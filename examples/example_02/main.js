@@ -19,59 +19,75 @@
 
     $('#console').hide();
 
-    $('#connect_button').on('click', function () {
+    var client = new ModbusClient();
 
-        var host = $('#host').val(),
-            port = parseInt($('#port').val()),
-            offset = parseInt($('#offset').val());
+    client.on('connected', function () {
+    
+        log('Connection established.');  
 
-        Modbus.connect(host, port)
-            .then(function (client) { 
+        $('#connect').hide();
+        $('#console').show();
 
-                log('Connection established.');  
+        var start = false, wr = 0;
 
-                $('#connect').hide();
-                $('#console').show();
-
-                var start = false, wr = 0;
-
-                var write = function () {
-                
-                    client.writeSingleRegister(offset, wr++).then(function () {
-                    
-                        log('Writing Register done!');
-
-                    }).fail(function () {
-                    
-                        log('Writing Register failed.');
-                    
-                    });
-                
-                };
-
-                var read = function () {
-                
-                    client.readInputRegisters(offset, 1).then(function (reg) {
-                    
-                        log('Reading ' + reg[0] + ' from register.');
-                    
-                    }).fail(function (err) {
-                    
-                        log('Reading register failed (ErrCode : ' + err.errCode + ')');
-                    
-                    });
-                
-                };
-
-                document.getElementById('write').addEventListener('click', write);
-                document.getElementById('read').addEventListener('click', read);
-                        
+        var write = function () {
+        
+            client.writeSingleRegister(offset, wr++).then(function () {
+            
+                log('Writing Register done!');
 
             }).fail(function () {
-
-                log('Connection failed.');
-
+            
+                log('Writing Register failed.');
+            
             });
+        
+        };
 
-        });
+        var read = function () {
+        
+            client.readInputRegisters(offset, 1).then(function (reg) {
+            
+                log('Reading ' + reg[0] + ' from register.');
+            
+            }).fail(function (err) {
+            
+                log('Reading register failed (ErrCode : ' + err.errCode + ')');
+            
+            });
+        
+        };
+
+        document.getElementById('write').addEventListener('click', write);
+        document.getElementById('read').addEventListener('click', read);
+   
+    });
+
+    client.on('disconnected', function () {
+   
+        $('#connect').show();
+        $('#disconnect').hide(); 
+
+    });
+
+    client.on('error', function () {
+
+        setTimeout(function () {
+        
+            client.reconnect();
+
+        }, 5000);
+
+    });
+
+    $('#connect_button').on('click', function () {
+
+        var host    = $('#host').val(),
+            port    = parseInt($('#port').val()),
+            offset  = parseInt($('#offset').val());
+
+        client.connect(host, port);
+
+    });
+
 })();

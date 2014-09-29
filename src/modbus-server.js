@@ -1,11 +1,15 @@
-var ModbusServerClient = function (clientSocketId, server) {
+var ModbusServerClient = function (info, server, simDelay) {
 
     if (!(this instanceof ModbusServerClient)) {
-        return new ModbusServerClient(clientSocketId, server);
+        return new ModbusServerClient(info, server, simDelay);
     }
 
-    this._client_socket_id  = clientSocketId;
+    this._info              = info;
+    this._client_socket_id  = info.clientSocketId;
     this._server            = server;
+    this._simDelay          = simDelay || 0;
+
+    this._queue             = [];
 
     this._get_requests = function (data) {
     
@@ -75,19 +79,37 @@ var ModbusServerClient = function (clientSocketId, server) {
         var ret_buffer, ret_head_dv, ret_body_dv;
 
         if (request.body.fc === 0x04) {
-        
+       
+            console.log('ModbusServerClient', 'Preparing response for fc 0x04');
+
             ret_buffer = new ArrayBuffer(7 + 2 + request.body.cnt * 2);
 
+            // MBAP
+            ret_head_dv = new DataView(ret_buffer, 0, 7);
+
+            ret_head_dv.setUint16(0, request.header.tid);
+            ret_head_dv.setUint16(2, request.header.pid);
+            ret_head_dv.setUint16(4,  1 + 2 + request.body.cnt * 2);
+            ret_head_dv.setUint8(6, request.header.uid);
+
+            // BODY
             ret_body_dv = new DataView(ret_buffer, 7, 2 + request.body.cnt * 2);
 
+            console.log('ModbusServerClient', 'Request body count', request.body.cnt);
+
             ret_body_dv.setUint8(0, 4);
-            ret_body_dv.setUint8(1, request.body.cnt);
+            ret_body_dv.setUint8(1, request.body.cnt * 2);
 
             for (var i = 0; i < request.body.cnt; i += 1) {
            
-                console.log('ModbusServerClient', 'InputRegister with index', request.body.adr,'has value', this._server.getInputRegister(request.body.adr + i));
+                console.log('ModbusServerClient', 'InputRegister with index', 
+                            request.body.adr + i,
+                            'has value', 
+                            this._server.getInputRegister(request.body.adr + i));
 
-                ret_body_dv.setUint16(2 + (i * 2), this._server.getInputRegister(request.body.adr + i));
+                ret_body_dv.setUint16(
+                    2 + (i * 2), 
+                    this._server.getInputRegister(request.body.adr + i));
 
             }
 
@@ -99,6 +121,15 @@ var ModbusServerClient = function (clientSocketId, server) {
         if (request.body.fc === 0x06) {
 
             ret_buffer = new ArrayBuffer(12);
+
+            // MBAP
+            ret_head_dv = new DataView(ret_buffer, 0, 7);
+
+            ret_head_dv.setUint16(0, request.header.tid);
+            ret_head_dv.setUint16(2, request.header.pid);
+            ret_head_dv.setUint16(4, request.header.len);
+            ret_head_dv.setUint8(6, request.header.uid);
+
 
             ret_body_dv = new DataView(ret_buffer, 7, 5);
 
@@ -114,12 +145,7 @@ var ModbusServerClient = function (clientSocketId, server) {
         
         }
 
-        ret_head_dv = new DataView(ret_buffer, 0, 7);
 
-        ret_head_dv.setUint16(0, request.header.tid);
-        ret_head_dv.setUint16(2, request.header.pid);
-        ret_head_dv.setUint16(4, request.header.len);
-        ret_head_dv.setUint8(6, request.header.uid);
 
 
         return ret_buffer;
@@ -133,22 +159,52 @@ var ModbusServerClient = function (clientSocketId, server) {
 
         console.log('ModbusServerClient', 'Sending answer to the client.');
 
-        chrome.sockets.tcp.send(this._client_socket_id, buffer, function (ret) {
+        if (!this._simDelay) {
 
-            if (ret < 0 ) {
+            console.log('ModbusServerClient', 'Sending answer right away, no SimMode.');
+
+            chrome.sockets.tcp.send(this._client_socket_id, buffer, function (ret) {
+
+                if (ret < 0 ) {
             
-                console.error('ModbusServerClient', 'Sending an answer failed.');
+                    console.error('ModbusServerClient', 'Sending an answer failed.');
 
-                defer.reject();
-                return;
+                    defer.reject();
+                    return;
             
-            }
+                }
 
-            console.log('ModbusServerClient', 'Sending answer succeeded.');
+                console.log('ModbusServerClient', 'Sending answer succeeded.');
         
-            defer.resolve();
+                defer.resolve();
 
-        });
+            });
+
+        } else {
+       
+            console.log('ModbusServerClient', 'Holding back answer for', this._simDelay, 'ms (SimMode)');
+
+            var that = this;
+
+            setTimeout(function () {
+                chrome.sockets.tcp.send(that._client_socket_id, buffer, function (ret) {
+                
+                    if (ret < 0) {
+                    
+                        console.error('ModbusServerClient', 'Sending an answer failed.');
+                        defer.reject();
+                        return;
+
+                    }
+
+                    console.log('ModbusServerClient', 'Sending answer succeeded.');
+
+                    defer.resolve();
+                
+                });
+            }, this._simDelay);
+        
+        }
 
         return defer.promise();
     
@@ -165,6 +221,7 @@ var ModbusServerClient = function (clientSocketId, server) {
         console.log('ModbusServerClient', 'Current data package contains', requests.length,' request');
 
         for (var i = 0; i < requests.length; i+=1) {
+
             ret = this._handle_request(requests[i]);
 
             send_q.push(this._send_answer(ret));
@@ -195,7 +252,13 @@ var ModbusServerClient = function (clientSocketId, server) {
 
 };
 
-var ServerRegister = function (start, server) {
+ModbusServerClient.method('getInfo', function () {
+
+    return this._client;
+
+});
+
+ServerRegister = function (start, server) {
 
     if (!(this instanceof ServerRegister)) {
         return new ServerRegister(start, server);
@@ -205,6 +268,8 @@ var ServerRegister = function (start, server) {
 
     this._start     = start;
     this._server    = server;
+
+    console.log('ServerRegister', 'Initialized with', this._start);
 
     this._command   = {
     
@@ -259,6 +324,13 @@ var ServerRegister = function (start, server) {
             return;
         }
 
+        // fire new command event
+
+        console.log('ServerRegister', 'Firing event', 'execute_' + this._command.id, this);
+
+        this.fire('execute_' + this._command.id);
+
+
         // always succeed
 
         console.log("ServerRegister", 'New command', this._command);
@@ -292,16 +364,17 @@ var ServerRegister = function (start, server) {
 ServerRegister.inherits(Events);
 
 
-ModbusServer = function (host, port) {
+ModbusServer = function (host, port, simDelay) {
 
     if (!(this instanceof ModbusServer)) {
-        return new ModbusServer(host, port);
+        return new ModbusServer(host, port, simDelay);
     }
 
     Events.call(this);
 
     this._host                  = host;
     this._port                  = port;
+    this._simDelay              = simDelay;
 
     this._socket_id             = null;
     this._is_connected          = false;
@@ -319,7 +392,11 @@ ModbusServer = function (host, port) {
 
         console.log('ModbusServer', 'New client created.');
 
-        this._clients.push(new ModbusServerClient(info.clientSocketId, this));
+        var new_client = new ModbusServerClient(info, this, this._simDelay);
+
+        this.fire('client_accepted', [new_client]);
+
+        this._clients.push(new_client);
    
     };
     
@@ -327,6 +404,12 @@ ModbusServer = function (host, port) {
 };
 
 ModbusServer.inherits(Events);
+
+ModbusServer.method('getClients', function () {
+
+    return this._clients;
+
+});
 
 ModbusServer.method('start', function () {
 
@@ -405,5 +488,11 @@ ModbusServer.method('getInputRegister', function (adr) {
 ModbusServer.method('createNewRegister', function (start) {
 
     return new ServerRegister(start, this);
+
+});
+
+ModbusServer.method('createCustomRegister', function (cls, start) {
+
+    return new cls(start, this);
 
 });

@@ -1,5 +1,9 @@
 var Events = function () {
 
+    if (!(this instanceof Events)) {
+        return new Events();
+    }
+
     this._cbList = { };
 
 };
@@ -7,7 +11,7 @@ var Events = function () {
 Events.method('fire', function (name, args) {
 
     if (!this._cbList[name]) {
-    
+
         return;
 
     }
@@ -20,20 +24,19 @@ Events.method('fire', function (name, args) {
 
 });
 
-Events.method('fireLater', function (name) {
+Events.method('fireLater', function (name, args) {
 
-    var that = this, 
+    if (args === undefined) {
         args = [];
-
-    if (arguments.length > 1) {
-        args = Array.prototype.slice.call(arguments, 1);
     }
 
     return function () {
-    
-        that.fire(name, args.concat(arguments));
 
-    };
+        var a = args.concat(arguments);
+
+        this.fire(name, a===[]?a:undefined);
+
+    }.bind(this);
 
 });
 
@@ -45,7 +48,7 @@ Events.method('on', function (name, func) {
 
     this._cbList[name].push(func);
 
-    return { name: name, index: this._cbList[name].length-1 };
+    return { name: name, index: this._cbList[name].length - 1 };
 
 });
 

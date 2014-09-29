@@ -1,3 +1,123 @@
+
+function ModbusClientTest() {
+
+    var that = this;
+
+    chrome                          = { };
+    chrome.sockets                  = { };
+    chrome.sockets.tcp              = { };
+    chrome.sockets.tcp.create       = createMockFunction();
+    chrome.sockets.tcp.connect      = createMockFunction();
+    chrome.sockets.tcp.destroy      = createMockFunction();
+    chrome.sockets.tcp.disconnect   = createMockFunction();
+    chrome.sockets.tcp.setPaused    = createMockFunction();
+    chrome.sockets.tcp.onReceive    = { };
+    chrome.sockets.tcp.onReceive.addListener = function (cb) {
+    
+        that.onReceiveListener = cb; 
+
+    };
+
+    chrome.sockets.tcp.onReceiveError = { };
+    chrome.sockets.tcp.onReceiveError.addListener = function (cb) {
+      
+        that.onReceiveErrorListener = cb;
+        
+    };
+
+    expectCall(chrome.sockets.tcp.create)(_,_)
+        .willOnce(function (o, cb) { cb({socketId: 1}); });
+
+    this.client = new ModbusClient('127.0.0.1', 502);
+
+};
+
+registerTestSuite(ModbusClientTest);
+
+var proto = ModbusClientTest.prototype;
+
+proto.connectionFailure = function () {
+
+    expectCall(chrome.sockets.tcp.connect)(1, '127.0.0.1', 502, _)
+        .willOnce(function (sid, host, port, cb) { cb( -1 ); });
+
+    var failureCallback = createMockFunction(),
+        successCallback = createMockFunction ();
+
+    this.client.on('connect_error', failureCallback);
+    this.client.on('connected', successCallback);
+
+    expectCall(failureCallback)().times(1);
+    expectCall(successCallback)().times(0);
+
+    this.client.connect();
+
+};
+
+proto.establishConnection = function () {
+
+    expectCall(chrome.sockets.tcp.connect)(1, '127.0.0.1', 502, _)
+        .willOnce(function (sid, host, port, cb) { cb(0); });
+
+    var failureCallback = createMockFunction(),
+        successCallback = createMockFunction();
+
+    this.client.on('connect_error', failureCallback);
+    this.client.on('connected', successCallback);
+
+    expectCall(failureCallback)().times(0);
+    expectCall(successCallback)().times(1);
+
+    this.client.connect();
+
+};
+
+proto.disconnect = function () {
+
+    this.establishConnection();
+
+    expectCall(chrome.sockets.tcp.disconnect)(1, _)
+        .willOnce(function (id, cb) { cb(); });
+
+    var cb = createMockFunction();
+
+    expectCall(cb)().times(1);
+
+    this.client.on('disconnected', cb);
+
+    this.client.disconnect();
+
+};
+
+proto.reconnect = function () {
+
+
+    expectCall(chrome.sockets.tcp.connect)(1, _)
+        .willOnce(function (id, host, port, cb) { cb(0); });
+
+    expectCall(chrome.sockets.tcp.disconnect)(1, _)
+        .willOnce(function (id, cb) { cb() });
+
+    expectCall(chrome.sockets.tcp.setPaused)(1, false, _)
+        .willOnce(function (cb) { cb() });
+
+    this.client.on('connected', function () {
+    
+        this.onReceiveErrorListener();
+    
+    }.bind(this));
+
+    this.client.on('error', function () {
+ 
+        this.client.reconnect();
+   
+    });
+
+    this.client.connect();
+
+};
+
+/*
 describe('ModbusClient ReadCoils Test.', function () {
 
     var socket_api,
@@ -383,4 +503,4 @@ describe('ModbusClient ReadCoils Test.', function () {
     });
 
 
-});
+}); */

@@ -23,9 +23,15 @@ ModbusLoop = function (client, duration) {
 
     this._client.on('error', function () {
     
-        this.fire('error', arguments);
+        this.stop();
 
-    });
+    }.bind(this));
+
+    this._client.on('disconnected', function () {
+    
+        this.stop();
+
+    }.bind(this));
 
     this._confirmTermination = function () {
     

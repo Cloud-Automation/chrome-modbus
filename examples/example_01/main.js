@@ -17,69 +17,79 @@
 
     log('Start connection...');
 
-CloudAutomation.ModbusClient.connect('192.168.1.1')
-    .then(function (client) { 
+    var client  = new ModbusClient();
 
-        log('Connection established.');
-  
-        log('Setting up poll.');
+    console.log(client);
 
-        poll = ModbusPoll(client, 70);
+    var loop    = new ModbusLoop(client, 500),
+        id1     = loop.readInputRegisters(12288, 2),
+        id2     = loop.readInputRegisters(12290, 2);
 
-        log('Poll set up!');
+    loop.on(id1, function (data) {
 
-        var id_1 = poll.readInputRegisters(12288, 2),
-            id_2 = poll.readInputRegisters(12290, 2),
-            e;
-
-        poll.on(id_1, function (data) {
-
-            document.getElementById('reg1').innerHTML = data[0];
-            document.getElementById('reg2').innerHTML = data[1];
-
-        });
-
-        poll.on(id_2, function (data) {
-        
-            document.getElementById('reg3').innerHTML = data[0];
-            document.getElementById('reg4').innerHTML = data[1];
-       
-        });
-
-        poll.on('error', function (err) {
-
-            log(err.errCode);
-
-            log('Loop stopped.');
-
-            start = false;
-        
-        });
-
-        var start = false;
-
-        document.getElementById('start').addEventListener('click', function () {
-            
-            if (!start) {
-
-                log('start clicked');
-                poll.start();
-                start = true;
-                return;
-
-            }
-
-            log('stop clicked');
-            start = false;
-            poll.stop();
-                
-        });
-
-
-    }).fail(function () {
-
-        log('Connection failed.');
+        document.getElementById('reg1').innerHTML = data[0];
+        document.getElementById('reg2').innerHTML = data[1];
 
     });
+
+    loop.on(id2, function (data) {
+    
+        document.getElementById('reg3').innerHTML = data[0];
+        document.getElementById('reg4').innerHTML = data[1];
+    
+    });
+
+    client.on('connected', function () {
+    
+        log('Client connected.');
+
+        loop.start();        
+    
+    });
+
+    client.on('disconnected', function () {
+    
+        log('Client disconnected.');
+
+    });
+
+    client.on('error', function () {
+    
+        log('Client error');
+
+        console.log('Main', 'Client Error.', arguments);
+
+        setTimeout(function () {
+            
+            client.reconnect();
+            
+        }, 5000);
+    
+    });
+
+    var start = false;
+
+    document.getElementById('start').addEventListener('click', function () {
+        
+        if (!start) {
+
+            log('start clicked');
+            client.connect('127.0.0.1', 8001);
+
+            document.getElementById('start').innerHTML = 'stop';
+
+            start = true;
+            return;
+
+        }
+
+        log('stop clicked');
+        document.getElementById('start').innerHTML = 'start';
+        start = false;
+        client.disconnect();
+
+    });
+
+
 
 })();

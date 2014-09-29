@@ -32,7 +32,7 @@ $(document).ready(function () {
         var host = $('#host').val(),
             port = parseInt($('#port').val());
 
-        server = new ModbusServer(host, port);
+        server = new ModbusServer(host, port, 200); // with simulation delay
 
         server.createNewRegister(12288);
 

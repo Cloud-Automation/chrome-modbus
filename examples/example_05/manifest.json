@@ -12,7 +12,7 @@
     },
     "sockets": {
         "tcpServer": {
-            "listen":"*:8001"
+            "listen":"*:*"
         }
     }
 }
