@@ -4,7 +4,7 @@ ModbusLoop = function (client, duration) {
         return new ModbusLoop(client, duration);
     }
 
-    Events.call(this);
+    StateMachine.call(this, 'stop');
 
     if (!client) {
         throw new Error('No Modbus client defined!');
@@ -15,7 +15,6 @@ ModbusLoop = function (client, duration) {
 
     this._handler   = { };
 
-    this._start     = false;
     this._counter   = -1;
     this._id        = 0;
     this._exTime    = 10000000;
@@ -75,13 +74,14 @@ ModbusLoop = function (client, duration) {
 
     var that = this;
 
-    if (!this._duration) {
-   
-        console.log('ModbusLoop', 'No duration, starting free loop.', this._duration);
+
+    this._startLoop = function () {
+
+        console.log('ModbusLoop', 'No duration, starting free loop.');
 
         this._freeLoop = function () {
         
-            if (!that._start) {
+            if (!that.inState('start')) {
                 return;
             }
 
@@ -125,13 +125,15 @@ ModbusLoop = function (client, duration) {
         
         };
 
-    } else {
+    };
+
+    this._startLoopWithDuration = function () {
 
         console.log('ModbusLoop', 'Starting loop with duration', this._duration);
 
-        this.iid = setInterval(function () {
+        this._iid = setInterval(function () {
       
-            if (!that._start) {
+            if (!that.inState('start')) {
                 return;
             }
 
@@ -143,11 +145,33 @@ ModbusLoop = function (client, duration) {
 
         }, this._duration);
 
-    }
+    };
+
+    this.on('state_changed', function (oldState, newState) {
+
+        if (newState === 'start') {
+       
+            if (this._duration) {
+                this._startLoopWithDuration();
+            } else {
+                this._startLoop();
+            }
+
+        }
+
+        if (newState === 'stop') {
+   
+            if (this._iid) {
+                clearInterval(this.iid);
+            } 
+           
+        }
+    
+    });
  
 };
 
-ModbusLoop.inherits(Events);
+ModbusLoop.inherits(StateMachine);
 
 ModbusLoop.method('readCoils', function (start, count) {
 
@@ -359,7 +383,8 @@ ModbusLoop.method('remove', function (id) {
 ModbusLoop.method('start', function () {
 
     this._counter = -1;
-    this._start = true; 
+
+    this.setState('start');
 
     if (!this._duration) {
         this._freeLoop(); 
@@ -370,6 +395,6 @@ ModbusLoop.method('start', function () {
 
 ModbusLoop.method('stop', function () {
 
-    this._start = false;
+    this.setState('stop');
 
 });

@@ -21,7 +21,7 @@
     $('#console').hide();
 
     var client  = new ModbusClient(),
-        loop    = new ModbusLoop(client),
+        loop    = new ModbusLoop(client, 200),
         offset  = parseInt($('#offset').val()),
         reg     = loop.createRegister(Register, offset);
 
@@ -73,6 +73,8 @@
 
     client.on('disconnected', function () {
 
+        log('Connection closed.');
+
         $('#connect').show();
         $('#console').hide();    
     
@@ -80,8 +82,9 @@
 
     client.on('error', function () {
    
-        setTimeout(function () {
-            
+        log('Connection error.');
+
+        setTimeout(function () { 
             
             client.reconnect();
             

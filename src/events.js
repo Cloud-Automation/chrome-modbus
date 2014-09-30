@@ -32,9 +32,9 @@ Events.method('fireLater', function (name, args) {
 
     return function () {
 
-        var a = args.concat(arguments);
+        var a = args.concat(Array.prototype.slice.call(arguments,0));
 
-        this.fire(name, a===[]?a:undefined);
+        this.fire(name, a.length>0?a:undefined);
 
     }.bind(this);
 

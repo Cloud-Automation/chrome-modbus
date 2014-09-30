@@ -73,7 +73,7 @@ EventsTest.prototype.fireEventLaterWithArgs = function () {
     expectCall(this.eventHandler)(1, 2, 3, 4, 5, 6);
 
     subj.on('test_event', this.eventHandler);
-    subj.fireLater('test_event', [1, 2, 3])([4, 5, 6]);
+    subj.fireLater('test_event', [1, 2, 3])(4, 5, 6);
 
 };
 

@@ -14,12 +14,54 @@
     
     };
 
+    var client  = new ModbusClient(),
+        wr      = 0;
+
+
+    var write = function () {
+    
+        var offset  = parseInt($('#offset').val());
+
+        log('Writing ' + wr + ' to ' + offset);
+
+        client.writeSingleRegister(offset, wr++).then(function () {
+        
+            log('Writing Register done!');
+
+        }).fail(function () {
+        
+            log('Writing Register failed.');
+        
+        });
+    
+    };
+
+    var read = function () {
+    
+        var offset  = parseInt($('#offset').val());
+
+        log('Reading one register from ' + offset);
+
+        client.readInputRegisters(offset, 1).then(function (reg) {
+        
+            log('Reading ' + reg[0] + ' from register.');
+        
+        }).fail(function (err) {
+        
+            log('Reading register failed (ErrCode : ' + err.errCode + ')');
+        
+        });
+    
+    };
+
+    document.getElementById('write').addEventListener('click', write);
+    document.getElementById('read').addEventListener('click', read);
+
 
     log('Start connection...');
 
     $('#console').hide();
 
-    var client = new ModbusClient();
 
     client.on('connected', function () {
     
@@ -27,50 +69,21 @@
 
         $('#connect').hide();
         $('#console').show();
-
-        var start = false, wr = 0;
-
-        var write = function () {
-        
-            client.writeSingleRegister(offset, wr++).then(function () {
-            
-                log('Writing Register done!');
-
-            }).fail(function () {
-            
-                log('Writing Register failed.');
-            
-            });
-        
-        };
-
-        var read = function () {
-        
-            client.readInputRegisters(offset, 1).then(function (reg) {
-            
-                log('Reading ' + reg[0] + ' from register.');
-            
-            }).fail(function (err) {
-            
-                log('Reading register failed (ErrCode : ' + err.errCode + ')');
-            
-            });
-        
-        };
-
-        document.getElementById('write').addEventListener('click', write);
-        document.getElementById('read').addEventListener('click', read);
-   
+  
     });
 
     client.on('disconnected', function () {
-   
+  
+        log('Connection closed.');
+
         $('#connect').show();
         $('#disconnect').hide(); 
 
     });
 
     client.on('error', function () {
+
+        log('Connection error.');
 
         setTimeout(function () {
         
@@ -83,8 +96,7 @@
     $('#connect_button').on('click', function () {
 
         var host    = $('#host').val(),
-            port    = parseInt($('#port').val()),
-            offset  = parseInt($('#offset').val());
+            port    = parseInt($('#port').val());
 
         client.connect(host, port);
 

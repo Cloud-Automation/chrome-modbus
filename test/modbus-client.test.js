@@ -25,10 +25,8 @@ function ModbusClientTest() {
         
     };
 
-    expectCall(chrome.sockets.tcp.create)(_,_)
-        .willOnce(function (o, cb) { cb({socketId: 1}); });
 
-    this.client = new ModbusClient('127.0.0.1', 502);
+    this.client = new ModbusClient();
 
 };
 
@@ -37,6 +35,9 @@ registerTestSuite(ModbusClientTest);
 var proto = ModbusClientTest.prototype;
 
 proto.connectionFailure = function () {
+
+    expectCall(chrome.sockets.tcp.create)(_,_)
+        .willOnce(function (o, cb) { cb({socketId: 1}); });
 
     expectCall(chrome.sockets.tcp.connect)(1, '127.0.0.1', 502, _)
         .willOnce(function (sid, host, port, cb) { cb( -1 ); });
@@ -50,11 +51,15 @@ proto.connectionFailure = function () {
     expectCall(failureCallback)().times(1);
     expectCall(successCallback)().times(0);
 
-    this.client.connect();
+    this.client.connect('127.0.0.1', 502);
 
 };
 
 proto.establishConnection = function () {
+
+    expectCall(chrome.sockets.tcp.create)(_,_)
+        .willOnce(function (o, cb) { cb({socketId: 1}); });
+
 
     expectCall(chrome.sockets.tcp.connect)(1, '127.0.0.1', 502, _)
         .willOnce(function (sid, host, port, cb) { cb(0); });
@@ -68,7 +73,7 @@ proto.establishConnection = function () {
     expectCall(failureCallback)().times(0);
     expectCall(successCallback)().times(1);
 
-    this.client.connect();
+    this.client.connect('127.0.0.1', 502);
 
 };
 
@@ -91,29 +96,34 @@ proto.disconnect = function () {
 
 proto.reconnect = function () {
 
+    expectCall(chrome.sockets.tcp.create)(_,_)
+        .willOnce(function (o, cb) { cb({socketId: 1}); });
 
-    expectCall(chrome.sockets.tcp.connect)(1, _)
-        .willOnce(function (id, host, port, cb) { cb(0); });
+    expectCall(chrome.sockets.tcp.connect)(1, '127.0.0.1', 502, _)
+        .times(2)
+        .willRepeatedly(function (id, host, port, cb) { cb(0); });
 
     expectCall(chrome.sockets.tcp.disconnect)(1, _)
         .willOnce(function (id, cb) { cb() });
 
     expectCall(chrome.sockets.tcp.setPaused)(1, false, _)
-        .willOnce(function (cb) { cb() });
+        .willOnce(function (id, pause, cb) { cb() });
 
-    this.client.on('connected', function () {
-    
-        this.onReceiveErrorListener();
-    
-    }.bind(this));
+    var mock = createMockFunction();
 
+    expectCall(mock)().times(2)
+        .willOnce(function () { this.onReceiveErrorListener(); }.bind(this))
+        .willOnce(function () { });
+
+    this.client.on('connected', mock);
+    
     this.client.on('error', function () {
  
         this.client.reconnect();
    
-    });
+    }.bind(this));
 
-    this.client.connect();
+    this.client.connect('127.0.0.1', 502);
 
 };
 

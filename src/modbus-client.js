@@ -29,10 +29,19 @@ ModbusClient = function (timeout) {
 
     this.id         = 0;
     this.handler    = { };
+    this._pQueue    = [];
 
     var that        = this;
 
 
+    // flush everything when going from error to online again
+    this.on('state_changed', function (oldState, newState) {
+    
+        if (oldState === 'error' && newState === 'online') {
+            this._sendPacket();
+        }
+
+    });
 
     this._receiveListener = function (resp) { 
 
@@ -80,8 +89,7 @@ ModbusClient = function (timeout) {
 
             // cleartimeout
            
-            clearTimeout(that.handler[tid].timeout);
-            
+            clearTimeout(that.handler[tid].timeout); 
 
             // handle fc response
        
@@ -235,16 +243,11 @@ ModbusClient = function (timeout) {
 
     this._sendPacket = function (packet) {
         
-        if (!this._pQueue) {
-            this._pQueue = [];
-        }
-
         if (arguments.length > 0) {
             this._pQueue.push(packet);
         }
 
-
-        if (this._isWaiting) {
+        if (this._isWaiting || !this.inState('online')) {
             return;
         }
 
@@ -254,12 +257,24 @@ ModbusClient = function (timeout) {
 
         this._isWaiting = true;
 
-        var that = this;
+        var that    = this,
+            packet  = this._pQueue.shift();
 
         chrome.sockets.tcp.send(
 
-            this.socketId, this._pQueue.shift(), function () {
+            this.socketId, packet, function (sendInfo) {
    
+            if (sendInfo.resultCode < 0) {
+            
+                console.log('ModbusClient', 'A error occured while sending packet.', sendInfo.resultCode);
+
+                that.setState('error');
+                that._isWaiting = false;
+
+                return;
+
+            }
+
             that._isWaiting = false;
 
             that._sendPacket();

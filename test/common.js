@@ -8,3 +8,9 @@ console = {
         gjstest.log(s);
     }
 };
+
+setTimeout = function (cb, ms) {
+
+    cb();
+
+};
