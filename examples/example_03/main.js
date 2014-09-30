@@ -15,15 +15,23 @@
     };
 
 
-    log('Start connection...');
 
 
     $('#console').hide();
+    $('#disconnect_button').hide();
 
     var client  = new ModbusClient(),
-        loop    = new ModbusLoop(client, 200),
-        offset  = parseInt($('#offset').val()),
+        loop    = new ModbusLoop(client),
+        offset  = 10,
         reg     = loop.createRegister(Register, offset);
+
+    loop.on('error', function (errCode) {
+    
+        log('Error on loop');
+
+        console.log('Error on loop', errCode);
+    
+    });
 
     reg.on('update_status', function (data) {
     
@@ -64,6 +72,8 @@
 
         log('Connection established.');
  
+        $('#disconnect_button').show();
+
         $('#connect').hide();
         $('#console').show(); 
 
@@ -74,6 +84,9 @@
     client.on('disconnected', function () {
 
         log('Connection closed.');
+
+        $('#connect_button').removeAttr('disabled');
+        $('#disconnect_button').hide();
 
         $('#connect').show();
         $('#console').hide();    
@@ -92,13 +105,38 @@
     
     });
 
+    client.on('connect_error', function () {
+    
+        log('Connection failed.');
+
+        $('#connect_button').removeAttr('disabled');
+        $('#disconnect_button').hide();
+
+        $('#connect').show();
+        $('#console').hide();
+    
+    });
+
     $('#connect_button').on('click', function () {
 
         var host    = $('#host').val(),
             port    = $('#port').val();
 
+        $(this).attr('disabled', 'disabled');
         client.connect(host, parseInt(port));
 
+        offset  = parseInt($('#offset').val());
+
+        log('Start connection...');
+
+    });
+
+    $('#disconnect_button').on('click', function () {
+    
+        client.disconnect();
+
+        log('Closing connection...');
+    
     });
 
 })();

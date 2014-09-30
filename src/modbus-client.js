@@ -497,37 +497,38 @@ ModbusClient.method('connect', function (host, port) {
 
 
 
-    if (!this.inState('init')) {
+    if (!this.socketId) {
+   
+        console.log('ModbusClient', 'No socketId provided, creating socket.');
 
-        connect();
-    
-        return this;
+        chrome.sockets.tcp.create({}, function (createInfo) {
 
-    }
-    
-    console.log('ModbusClient', 'No socketId provided, creating socket.');
+            console.log('ModbusClient', 'Socket created.', createInfo);
 
-    chrome.sockets.tcp.create({}, function (createInfo) {
+            that.socketId = createInfo.socketId;    
 
-        console.log('ModbusClient', 'Socket created.', createInfo);
+            chrome.sockets.tcp.onReceiveError.addListener(function () {
 
-        that.socketId = createInfo.socketId;    
+                console.log('ModbusClient', 'OnReceiveError called.');
 
-        chrome.sockets.tcp.onReceiveError.addListener(function () {
+                that.setState('error');
 
-            console.log('ModbusClient', 'OnReceiveError called.');
+                that.fire('error');
 
-            that.setState('error');
+            });
 
-            that.fire('error');
+            connect();
 
         });
 
-        connect();
+    } else {
 
-    });
+        connect();
+    
+    }
 
     return this;
+ 
 
 });
 

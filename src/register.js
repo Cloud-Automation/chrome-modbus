@@ -5,7 +5,12 @@ Register = function (client, start) {
         return new Register(client, start);
     }
 
-    Events.call(this);
+    /*
+     * States:
+     *  init -> ready -> executing -> ready
+     */
+
+    StateMachine.call(this, 'ready');
 
     this.client = client;
     this.start  = start;
@@ -22,7 +27,6 @@ Register = function (client, start) {
         arg             : 0
     };
 
-    this._inExecution = false;
     this._queue = [];
     
     this._cmd_id     = 0; 
@@ -39,11 +43,21 @@ Register = function (client, start) {
             'param'     : param
         });
 
-        this._flush();
+        if (this.inState('ready')) {
+            this._flush();
+        }
 
         return defer.promise();
 
     };
+
+    this.on('state_changed', function (oldState, newState) {
+    
+        if (newState === 'ready') {
+            this._flush();
+        }
+    
+    });
         
 
     this._flush = function () {
@@ -55,14 +69,14 @@ Register = function (client, start) {
             return;
         }
 
-        if (this._inExecution) {
+        if (this.inState('execution')) {
             console.log('Register', 'Waiting, currently in execution state.');
             return;
         }
 
-        this._inExecution = true;
+        this.setState('execution');
 
-        var first   = this._queue.pop(),
+        var first   = this._queue.shift(),
             command = first.command,
             param   = first.param,
             defer   = first.deferred;
@@ -84,8 +98,7 @@ Register = function (client, start) {
 
                 defer.reject({ errCode: 'modbusError' });
 
-                that._inExecution = false;
-                that._flush();
+                that.setState('ready');
     
             }).then(function () {
             
@@ -95,12 +108,11 @@ Register = function (client, start) {
 
                 timeout_id = setTimeout(function () {
 
-                    console.error('Register', 'PLC did not executed the command inside the timeframe.');
+                    console.error('Register', 'PLC did not executed the command inside the timeframe.', update_count);
 
                     defer.reject({ errCode: 'timeout', update_count : update_count });
 
-                    that._inExecution = false;
-                    that._flush();
+                    that.setState('ready');
 
                 }, 5000);
 
@@ -130,8 +142,7 @@ Register = function (client, start) {
 
                         }
 
-                        that._inExecution = false;
-                        that._flush();
+                        that.setState('ready');
 
                     }
 
@@ -143,7 +154,7 @@ Register = function (client, start) {
 
 };
 
-Register.inherits(Events);
+Register.inherits(StateMachine);
 
 Register.method('update_status', function (status_reg, status_arg) {
 
