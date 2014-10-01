@@ -12,5 +12,6 @@
         "tcp": {
             "connect": "*:*"
         }
-    }
+    },
+    "permissions": [ "storage" ]
 }

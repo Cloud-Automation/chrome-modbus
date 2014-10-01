@@ -15,8 +15,20 @@
     };
 
     var client  = new ModbusClient(),
+        loop    = new Loop(client),
         wr      = 0;
 
+   
+    loop.readInputRegisters(10, 4);
+    loop.readInputRegisters(14, 4);
+    loop.readInputRegisters(18, 4);
+    loop.readInputRegisters(30, 4); 
+
+    loop.on('update', function (data) {
+    
+        console.log(data);
+
+    });
 
     var write = function () {
     
@@ -36,27 +48,7 @@
     
     };
 
-    var read = function () {
-    
-        var offset  = parseInt($('#offset').val());
-
-        log('Reading one register from ' + offset);
-
-        client.readInputRegisters(offset, 1).then(function (reg) {
-        
-            log('Reading ' + reg[0] + ' from register.');
-        
-        }).fail(function (err) {
-        
-            log('Reading register failed (ErrCode : ' + err.errCode + ')');
-        
-        });
-    
-    };
-
     document.getElementById('write').addEventListener('click', write);
-    document.getElementById('read').addEventListener('click', read);
-
 
     log('Start connection...');
 
@@ -67,6 +59,8 @@
     
         log('Connection established.');  
 
+        loop.start();
+
         $('#connect').hide();
         $('#console').show();
   
@@ -76,6 +70,8 @@
   
         log('Connection closed.');
 
+        loop.stop();
+
         $('#connect').show();
         $('#disconnect').hide(); 
 
@@ -84,6 +80,8 @@
     client.on('error', function () {
 
         log('Connection error.');
+
+        loop.stop();
 
         setTimeout(function () {
         

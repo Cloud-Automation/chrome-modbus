@@ -1,8 +1,8 @@
 
-Register = function (client, start) {
+Register = function (client, loop, start) {
 
     if (!(this instanceof Register)) {
-        return new Register(client, start);
+        return new Register(client, loop, start);
     }
 
     /*
@@ -12,8 +12,9 @@ Register = function (client, start) {
 
     StateMachine.call(this, 'ready');
 
-    this.client = client;
-    this.start  = start;
+    this._client    = client;
+    this._loop      = loop;
+    this._start     = start;
 
     this.status = {
         stateflag_1     : false,
@@ -30,6 +31,39 @@ Register = function (client, start) {
     this._queue = [];
     
     this._cmd_id     = 0; 
+
+    this._loop.readInputRegisters(this._start, 4);
+
+    this._update_status = function (data) {
+
+        var status_reg = data[this._start],
+            status_arg = data[this._start + 1];
+
+        var s_1     = 0x0001,
+            s_2     = 0x0002,
+            s_3     = 0x0004,
+            s_4     = 0x0008,
+            s_state = 0x07F0,
+            s_cid   = 0x3800,
+            s_cide  = 0x4000,
+            s_cidf  = 0x8000;
+
+
+        this.status.stateflag_1 = (status_reg & s_1) >> 0;
+        this.status.stateflag_2 = (status_reg & s_2) >> 1;
+        this.status.stateflag_3 = (status_reg & s_3) >> 2;
+        this.status.stateflag_4 = (status_reg & s_4) >> 3;
+        this.status.state       = (status_reg & s_state) >> 4;
+        this.status.cmd_count   = (status_reg & s_cid) >> 11;
+        this.status.cmd_ex      = (status_reg & s_cide) >> 14;
+        this.status.cmd_err     = (status_reg & s_cidf) >> 15;
+        this.status.arg         = status_arg;
+
+        this.fire('update_status');
+
+    };
+
+    this._loop_listener_id = this._loop.on('update', this._update_status.bind(this));
 
     this._execute = function (command, param) {
 
@@ -91,7 +125,7 @@ Register = function (client, start) {
 
         console.log('Register', 'Writing to modbus server.', this.cmd_reg);
 
-        this.client.writeSingleRegister(this.start + 2, this.cmd_reg)
+        this._client.writeSingleRegister(this._start + 2, this.cmd_reg)
             .fail(function (err) {
    
                 console.error('Register', 'Sending command to PLC failed.', err);
@@ -156,28 +190,9 @@ Register = function (client, start) {
 
 Register.inherits(StateMachine);
 
-Register.method('update_status', function (status_reg, status_arg) {
+Register.method('close', function () {
 
-    var s_1     = 0x0001,
-        s_2     = 0x0002,
-        s_3     = 0x0004,
-        s_4     = 0x0008,
-        s_state = 0x07F0,
-        s_cid   = 0x3800,
-        s_cide  = 0x4000,
-        s_cidf  = 0x8000;
-
-
-    this.status.stateflag_1 = (status_reg & s_1) >> 0;
-    this.status.stateflag_2 = (status_reg & s_2) >> 1;
-    this.status.stateflag_3 = (status_reg & s_3) >> 2;
-    this.status.stateflag_4 = (status_reg & s_4) >> 3;
-    this.status.state       = (status_reg & s_state) >> 4;
-    this.status.cmd_count   = (status_reg & s_cid) >> 11;
-    this.status.cmd_ex      = (status_reg & s_cide) >> 14;
-    this.status.cmd_err     = (status_reg & s_cidf) >> 15;
-    this.status.arg         = status_arg;
-
-    this.fire('update_status');
+    this._loop.off(this._loop_listener_id);
 
 });
+

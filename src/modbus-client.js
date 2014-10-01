@@ -137,11 +137,11 @@ ModbusClient = function (timeout) {
 
             if (res.pdu.data) {
 
-                uHandler.callback.resolve(res.pdu.data, res);
+                uHandler.callback.resolve(res.pdu.data, uHandler.request);
 
             } else {
 
-                uHandler.callback.resolve(res);
+                uHandler.callback.resolve(uHandler.request);
 
             }
                
@@ -283,13 +283,14 @@ ModbusClient = function (timeout) {
 
     };
 
-    this._setCallbackHandler = function (handler, packet, id) {
+    this._setCallbackHandler = function (handler, packet, id, request) {
 
         var that = this;
 
         this.handler[id] = {
             'callback'      : handler,
-            'requestPacket' : packet
+            'requestPacket' : packet,
+            'request'       : request
         };
 
         this.handler[id].timeout = setTimeout(function () {
@@ -329,7 +330,10 @@ ModbusClient = function (timeout) {
 
         var data = new DataView(packet, 0, 12);
 
-        this._setCallbackHandler(defer, packet, id);
+        this._setCallbackHandler(defer, packet, id, { 
+            start: regNo, 
+            count: regCount 
+        });
 
         this._createNewId();
 
@@ -358,7 +362,10 @@ ModbusClient = function (timeout) {
         body.setUint16(BODY_START, regNo);
         body.setUint16(BODY_COUNT, regCount);
 
-        this._setCallbackHandler(defer, packet, id);
+        this._setCallbackHandler(defer, packet, id, {
+            start: regNo,
+            count: regCount
+        });
 
         this._createNewId();
 
@@ -387,7 +394,10 @@ ModbusClient = function (timeout) {
         body.setUint16(BODY_START, addr);
         body.setUint16(BODY_COUNT, value?65280:0);
     
-        this._setCallbackHandler(defer, packet, id);
+        this._setCallbackHandler(defer, packet, id, {
+            address: addr,
+            value: value
+        });
 
         this._createNewId();
 
@@ -416,7 +426,12 @@ ModbusClient = function (timeout) {
         body.setUint16(BODY_START, regNo);
         body.setUint16(BODY_COUNT, value);
 
-        this._setCallbackHandler(defer, packet, id);
+        this._setCallbackHandler(defer, packet, id, {
+        
+            address: regNo,
+            value: value
+
+        });
 
         this._createNewId();
 

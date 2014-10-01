@@ -1,142 +1,189 @@
-(function () {
 
-    var con = document.getElementById('log');
+$(document).ready(function () {
 
-    var log = function (text) {
+    var connectPage = new ConnectPage(),
+        setupPage   = new SetupPage(),
+        consolePage = new ConsolePage(),
+        client      = new ModbusClient(),
+        loop        = new ModbusLoop(client),
+        ok_clicked_handler,
+        reg;
+
+    App.addPage(connectPage);
+    App.addPage(setupPage);
+    App.addPage(consolePage);
+
+    connectPage.on('page_visible', function () {
     
-        var e = document.createElement('span'),
-            br = document.createElement('br');
-
-        e.innerHTML = text;
-
-        con.appendChild(e);
-        con.appendChild(br);
-    
-    };
-
-
-
-
-    $('#console').hide();
-    $('#disconnect_button').hide();
-
-    var client  = new ModbusClient(),
-        loop    = new ModbusLoop(client),
-        offset  = 10,
-        reg     = loop.createRegister(Register, offset);
-
-    loop.on('error', function (errCode) {
-    
-        log('Error on loop');
-
-        console.log('Error on loop', errCode);
-    
-    });
-
-    reg.on('update_status', function (data) {
-    
-        $('#s1').html(reg.status.stateflag_1?'1':'0');
-        $('#s2').html(reg.status.stateflag_2?'1':'0');
-        $('#s3').html(reg.status.stateflag_3?'1':'0');
-        $('#s4').html(reg.status.stateflag_4?'1':'0');
-
-        $('#state').html(reg.status.state);
-        $('#cid').html(reg.status.cmd_count);
-        $('#cex').html(reg.status.cmd_ex?'1':'0');
-        $('#cer').html(reg.status.cmd_err?'1':'0');
-
-        $('#s_arg').html(reg.status.arg);
-    });
-
-    var execute_command = function () {
-    
-        var cmd = document.getElementById('c_cmd').value;
-  
-        log('Executing command ', cmd);
-
-        reg._execute(cmd).then(function () {
+        chrome.storage.local.get('last', function (data) {
        
-            log('Command execution successfull.');
-        
-        }).fail(function () {
-        
-            log('Command execution failed.');
+            if (!data.last) {
+            
+                chrome.storage.local.set({ 'last': [] }, function () {
+               
+                    connectPage.setLast([]); 
+                
+                });
+            
+            } else {
+            
+                connectPage.setLast(data.last);
+            
+            }
         
         });
+    
+    });
 
-    };
-
-    document.getElementById('c_ex').addEventListener('click', execute_command);
 
     client.on('connected', function () {
-
-        log('Connection established.');
  
-        $('#disconnect_button').show();
+        chrome.storage.local.get('last', function (data) {
 
-        $('#connect').hide();
-        $('#console').show(); 
+            var isInside = false;
 
-        loop.start();
+            for (var i in data.last) {
+            
+                if (data.last[i].host === client.host && 
+                    data.last[i].port === client.port) {
+
+                    isInside = true;               
+
+                }
+            
+            }
+
+            if (!isInside) {
+
+                data.last.unshift({ 'host': client.host, 'port': client.port });
+
+                if (data.last.length > 5) {
+            
+                    data.last.pop();
+
+                }
+
+            }
+
+            chrome.storage.local.set( { 'last' : data.last }, function () {
+ 
+                App.log('Connection established.');
+
+                App.showPage(setupPage); 
+            
+            });
+        
+        });
    
+    
     });
 
     client.on('disconnected', function () {
+    
+        App.log('Connection closed.');
 
-        log('Connection closed.');
+        App.showPage(connectPage);
 
-        $('#connect_button').removeAttr('disabled');
-        $('#disconnect_button').hide();
+        connectPage.enable();
 
-        $('#connect').show();
-        $('#console').hide();    
+    });
+
+    client.on('error', function (err) {
+    
+        App.log_error('Connection error (' + err.errCode + ')' );
+
+        App.showPage(connectPage);
+
+        connectPage.disable();
     
     });
 
-    client.on('error', function () {
+    connectPage.on('connect_clicked', function () {
+    
+        client.connect(connectPage.getHost(), connectPage.getPort());
+    
+    });
+
+    setupPage.on('disconnect_clicked', function () {
+        
+        client.disconnect();
+                
+    });
+
+    setupPage.on('setup_clicked', function () {
    
-        log('Connection error.');
+        var offset = setupPage.getOffset();
 
-        setTimeout(function () { 
+        if (offset < 0) {
+
+            App.log_error('Offset is not valid.');
+            return;
+
+        }
+
+        App.log('Register setup was successfull.');
+
+        App.showPage(consolePage);
+
+
+        reg  = new Register(client, loop, offset);
+
+        reg.on('update_status', function () {
+
+            $('#s1').html(reg.status.stateflag_1?'1':'0');
+            $('#s2').html(reg.status.stateflag_2?'1':'0');
+            $('#s3').html(reg.status.stateflag_3?'1':'0');
+            $('#s4').html(reg.status.stateflag_4?'1':'0');
+
+            $('#state').html(reg.status.state);
+            $('#cid').html(reg.status.cmd_count);
+            $('#cex').html(reg.status.cmd_ex?'1':'0');
+            $('#cer').html(reg.status.cmd_err?'1':'0');
+
+            $('#s_arg').html(reg.status.arg);
+
+        });
+
+        ok_clicked_handler = consolePage.on('ok_clicked', function () {
+        
+            var cmd = consolePage.getCommand(); 
+
+            App.log('Executing command ' + cmd);
+
+            reg._execute(cmd).then(function () {
+       
+                App.log('Command execution successfull.');
+        
+            }).fail(function (err) {
             
-            client.reconnect();
-            
-        }, 5000); 
-    
-    });
+                App.log_error('Command execution failed (' + err.errCode + ')');
+        
+            });
 
-    client.on('connect_error', function () {
-    
-        log('Connection failed.');
+        });
 
-        $('#connect_button').removeAttr('disabled');
-        $('#disconnect_button').hide();
-
-        $('#connect').show();
-        $('#console').hide();
-    
-    });
-
-    $('#connect_button').on('click', function () {
-
-        var host    = $('#host').val(),
-            port    = $('#port').val();
-
-        $(this).attr('disabled', 'disabled');
-        client.connect(host, parseInt(port));
-
-        offset  = parseInt($('#offset').val());
-
-        log('Start connection...');
+        loop.start();
 
     });
 
-    $('#disconnect_button').on('click', function () {
-    
+    consolePage.on('disconnect_clicked', function () {
+        
         client.disconnect();
 
-        log('Closing connection...');
+    });
+
+    consolePage.on('back_clicked', function () {
+  
+        consolePage.off(ok_clicked_handler);
+
+        reg.close();
+
+        App.showPage(setupPage);
     
     });
 
-})();
+    App.showPage(connectPage);
+
+    App.log('Ready');
+
+});
