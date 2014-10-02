@@ -6,7 +6,7 @@
     },
     "manifest_version": 2,
     "name" : "Chrome Modbus Example 01",
-    "description": "Simple Loop Example",
+    "description": "Simple Modbus Client",
     "version": "0.0.1",
     "minimum_chrome_version": "33",
     "sockets": {

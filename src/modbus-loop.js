@@ -13,13 +13,17 @@ ModbusLoop = function (client, duration) {
 
     this._inputRegisters        = [];
 
-    this._client.on('state_changed', function (oldState, newState) {
+    this._client.on('disconnected', function () {
     
-        if (oldState === 'connected') {
-            this.setState('stop');
-        }
-    
+        this.setState('stop');
+
     }.bind(this));
+
+    this._client.on('error', function () {
+    
+        this.setState('stop');
+    
+    }.bind(this))
 
     this._updateInputRegisters = function (start, data) {
     

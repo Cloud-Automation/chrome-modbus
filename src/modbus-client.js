@@ -8,11 +8,446 @@ var MBAP_TID                = 0,
     BODY_START              = 1,
     BODY_COUNT              = 3,
     READ_COILS              = 1,
+    READ_HOLDING_REGISTERS  = 3,
     READ_INPUT_REGISTERS    = 4,
     WRITE_SINGLE_COIL       = 5,
     WRITE_SINGLE_REGISTER   = 6;
 
+var ModbusRequest = function (id, length) {
 
+    if (!(this instanceof ModbusRequest)) {
+        return new ModbusRequest(id);
+    }
+
+    this.id         = id;
+    this.length     = length;
+    this.deferred   = $.Deferred();
+
+    this.packet     = new ArrayBuffer(length);
+    this.header     = new DataView(this.packet, 0, 7);
+
+    this.timeout    = null;
+
+    this.setTID(id)
+        .setPID(0)
+        .setLength(length - 6)
+        .setUID(255);
+
+};
+
+ModbusRequest.method('setTID', function (id) {
+
+    this.header.setUint16(MBAP_TID, id);
+    this.id = id;
+
+    return this;
+
+});
+
+ModbusRequest.method('setPID', function (pid) {
+
+    this.header.setUint16(MBAP_PID, pid);
+    this.pid = pid;
+
+    return this;
+
+});
+
+ModbusRequest.method('setLength', function (len) {
+
+    this.header.setUint16(MBAP_LEN, len);
+    this.length = len;
+
+    return this;
+
+});
+
+ModbusRequest.method('setUID', function (uid) {
+
+    this.header.setUint8(MBAP_UID, uid);
+    this.uid = uid;
+
+    return this;
+
+});
+
+ModbusRequest.method('getPromise', function () {
+
+    return this.deferred.promise();
+
+});
+
+ModbusRequest.method('reject', function () {
+
+    this.deferred.reject.apply(null, arguments);
+
+    return this;
+
+});
+
+ModbusRequest.method('resolve', function () {
+
+    this.deferred.resolve.apply(null, arguments);
+
+    return this;
+
+});
+
+ModbusRequest.method('setTimeout', function (timeout) {
+
+    this.timeout = timeout;
+
+    return this;
+
+});
+
+var ReadCoilsRequest = function (id, start, count) {
+
+    if (!(this instanceof ReadCoilsRequest)) {
+        return new ReadCoilsRequest(id, start, count);
+    }
+
+    ModbusRequest.call(this, id, 12);
+
+    this.start  = start;
+    this.count  = count;
+
+    this.body   = new DataView(this.packet, 7, 5);
+
+    this.body.setUint8(BODY_FC, READ_COILS);
+    
+    this.setStart(start).setCount(count);
+
+};
+
+ReadCoilsRequest.inherits(ModbusRequest);
+
+ReadCoilsRequest.method('setStart', function (start) {
+
+    this.body.setUint16(BODY_START, start);
+    this.start = start;
+
+    return this;
+
+});
+
+ReadCoilsRequest.method('setCount', function (count) {
+
+    this.body.setUint16(BODY_COUNT, count);
+    this.count = count;
+
+    return this;
+
+});
+
+ReadCoilsRequest.method('handleResponse', function (data, offset) {
+ 
+    var mbap        = new DataView(data, offset, 7),
+        pdu         = new DataView(data, offset + 7, 2),
+        fc          = pdu.getUint8(0),
+        byte_count  = pdu.getUint8(1);
+
+    if (fc > 0x80) {
+  
+        this.deferred.reject({ errCode: 'serverError' });
+
+        return false;
+
+    }
+
+
+    var dv          = new DataView(data, offset + 9, byte_count),
+        fc_data     = [], i, t, j, mask,
+        count       = this.count,
+        fc_data     = []; 
+
+    for (i = 0; i < this.count; i += 1) {
+    
+        t = dv.getUint8(i);
+
+        for (j = 0; j < 7; j += 1) {
+        
+            mask = 1 << j;
+
+            fc_data.push(t & mask !== 0);
+
+            count -= 1;
+
+            if (count === 0) {
+                break;
+            }
+
+        }
+
+    }
+
+    this.deferred.resolve(fc_data, this);
+
+    return true;
+
+});
+
+var ReadHoldingRegistersRequest = function (id, start, count) {
+
+    if (!(this instanceof ReadHoldingRegistersRequest)) {
+        return new ReadHoldingRegistersRequest(id, start, count);
+    }
+
+    ModbusRequest.call(this, id, 12);
+
+    this.start  = start;
+    this.count  = count;
+
+    this.body   = new DataView(this.packet, 7, 5);
+
+    this.body.setUint8(BODY_FC, READ_HOLDING_REGISTERS);
+    
+    this.setStart(start).setCount(count);
+
+};
+
+ReadHoldingRegistersRequest.inherits(ModbusRequest);
+
+ReadHoldingRegistersRequest.method('setStart', function (start) {
+
+    this.body.setUint16(BODY_START, start);
+    this.start = start;
+
+    return this;
+
+});
+
+ReadHoldingRegistersRequest.method('setCount', function (count) {
+
+    this.body.setUint16(BODY_COUNT, count);
+    this.count = count;
+
+    return this;
+
+});
+
+ReadHoldingRegistersRequest.method('handleResponse', function (data, offset) {
+ 
+    var mbap        = new DataView(data, offset, 7),
+        pdu         = new DataView(data, offset + 7, 2),
+        fc          = pdu.getUint8(0),
+        byte_count  = pdu.getUint8(1);
+
+    if (fc > 0x80) {
+  
+        this.deferred.reject({ errCode: 'serverError' });
+
+        return false;
+
+    }
+
+    var dv      = new DataView(data, offset + 7 + 2, byte_count),
+        fc_data = [];
+
+    for (var i = 0; i < byte_count / 2; i += 1) {
+    
+        fc_data.push(dv.getUint16(i * 2));
+    
+    }
+
+    this.deferred.resolve(fc_data, this);
+
+    return true;
+
+});
+
+
+var ReadInputRegistersRequest = function (id, start, count) {
+
+    if (!(this instanceof ReadInputRegistersRequest)) {
+        return new ReadInputRegistersRequest(id, start, count);
+    }
+
+    ModbusRequest.call(this, id, 12);
+
+    this.start  = start;
+    this.count  = count;
+
+    this.body   = new DataView(this.packet, 7, 5);
+
+    this.body.setUint8(BODY_FC, READ_INPUT_REGISTERS);
+    
+    this.setStart(start).setCount(count);
+
+};
+
+ReadInputRegistersRequest.inherits(ModbusRequest);
+
+ReadInputRegistersRequest.method('setStart', function (start) {
+
+    this.body.setUint16(BODY_START, start);
+    this.start = start;
+
+    return this;
+
+});
+
+ReadInputRegistersRequest.method('setCount', function (count) {
+
+    this.body.setUint16(BODY_COUNT, count);
+    this.count = count;
+
+    return this;
+
+});
+
+ReadInputRegistersRequest.method('handleResponse', function (data, offset) {
+ 
+    var mbap        = new DataView(data, offset, 7),
+        pdu         = new DataView(data, offset + 7, 2),
+        fc          = pdu.getUint8(0),
+        byte_count  = pdu.getUint8(1);
+
+    if (fc > 0x80) {
+  
+        this.deferred.reject({ errCode: 'serverError' });
+
+        return false;
+
+    }
+
+    var dv      = new DataView(data, offset + 7 + 2, byte_count),
+        fc_data = [];
+
+    for (var i = 0; i < byte_count / 2; i += 1) {
+    
+        fc_data.push(dv.getUint16(i * 2));
+    
+    }
+
+    this.deferred.resolve(fc_data, this);
+
+    return true;
+
+});
+
+WriteSingleCoilRequest = function (id, address, value) {
+
+    if (!(this instanceof WriteSingleCoilRequest)) {
+        return new WriteSingleCoildRequest(id, address, value);
+    }
+
+    ModbusRequest.call(this, id, 12);
+
+    this.address    = address;
+    this.value      = value;
+
+    this.body       = new DataView(this.packet, 7, 5);
+ 
+    this.body.setUint8(BODY_FC, WRITE_SINGLE_COIL);
+   
+    this.setAddress(address).setValue(value);
+ 
+};
+
+
+WriteSingleCoilRequest.inherits(ModbusRequest);
+
+WriteSingleCoilRequest.method('setAddress', function (address) {
+
+    this.body.setUint16(BODY_START, address);
+    this.address = address;
+
+    return this;
+
+});
+
+WriteSingleCoilRequest.method('setValue', function (value) {
+
+    this.body.setUint16(BODY_COUNT, value?65280:0);
+    this.value = value;
+
+    return this;
+
+});
+
+WriteSingleCoilRequest.method('handleResponse', function (data, offset) {
+
+    var mbap        = new DataView(data, offset, 7),
+        pdu         = new DataView(data, offset + 7, 2),
+        fc          = pdu.getUint8(0),
+        byte_count  = pdu.getUint8(1);
+
+    if (fc > 0x80) {
+  
+        this.deferred.reject({ errCode: 'serverError' });
+
+        return false;
+
+    }
+
+
+    this.deferred.resolve(this);
+
+    return true;
+
+});
+
+WriteSingleRegisterRequest = function (id, address, value) {
+
+    if (!(this instanceof WriteSingleRegisterRequest)) {
+        return new WriteSingleRegisterRequest(id, address, value);
+    }
+
+    ModbusRequest.call(this, id, 12);
+
+    this.address        = address;
+    this.value          = value;
+
+    this.body           = new DataView(this.packet, 7, 5);
+
+    this.body.setUint8(BODY_FC, WRITE_SINGLE_REGISTER);
+
+    this.setAddress(address).setValue(value);
+
+};
+
+WriteSingleRegisterRequest.inherits(ModbusRequest);
+
+WriteSingleRegisterRequest.method('setAddress', function (address) {
+
+    this.body.setUint16(BODY_START, address);
+    this.address = address;
+
+    return this;
+
+});
+
+WriteSingleRegisterRequest.method('setValue', function (value) {
+
+    this.body.setUint16(BODY_COUNT, value);
+    this.value = value;
+
+    return this;
+
+});
+
+WriteSingleRegisterRequest.method('handleResponse', function (data, offset) {
+
+    var mbap        = new DataView(data, offset, 7),
+        pdu         = new DataView(data, offset + 7, 2),
+        fc          = pdu.getUint8(0),
+        byte_count  = pdu.getUint8(1);
+
+    if (fc > 0x80) {
+  
+        this.deferred.reject({ errCode: 'serverError' });
+
+        return false;
+
+    }
+
+    this.deferred.resolve(this);
+
+    return true;
+
+
+});
 
 ModbusClient = function (timeout) { 
    
@@ -23,15 +458,16 @@ ModbusClient = function (timeout) {
     // needed for the inheritance
     StateMachine.call(this, 'init');
 
-    this.host       = 'localhost';
-    this.port       = 502;
-    this.timeout    = timeout||5000;
+    this.host           = 'localhost';
+    this.port           = 502;
+    this.timeout        = timeout||5000;
 
-    this.id         = 0;
-    this.handler    = { };
-    this._pQueue    = [];
+    this.id             = 0;
 
-    var that        = this;
+    this._requests      = { };
+    this._requestQueue  = [];
+
+    var that            = this;
 
 
     // flush everything when going from error to online again
@@ -43,434 +479,229 @@ ModbusClient = function (timeout) {
 
     });
 
+    this.on('error', function () {
+    
+        // remove all remaining packages
+
+        for (var i in this._pQueue) {
+        
+            this._requestQueue[i].reject({ errCode: 'connectionError' });
+
+        }
+    
+    });
+
     this._receiveListener = function (resp) { 
 
         var offset  = 0,
-            hasMore = true,
-            data    = resp.data;
+            data    = resp.data,
+            request;
 
-        while (hasMore) {
+        while (offset < data.byteLength) {
 
             // read the header
-            var mbap    = new DataView(data, offset + 0, 7),
-                tid     = mbap.getUint16(0),
-                pid     = mbap.getUint16(2),
-                len     = mbap.getUint16(4),
-                uid     = mbap.getUint8(6),
-                res     = { };
+            var mbap        = new DataView(data, offset + 0, 7),
+                tid         = mbap.getUint16(0),
+                pdu         = new DataView(data, offset + 7, 2),
+                byte_count  = pdu.getUint8(1);
 
-            res.header = {
-                transaction_id  : tid,
-                protocol_id     : pid,
-                length          : len,
-                unit_id         : uid
-            };
+            request = this._requests[tid];
 
-            // read the pdu
-        
-            var pdu = new DataView(data, offset + 7, 2);
-
-            res.pdu = {
-                fc          : pdu.getUint8(0),
-                byte_count  : pdu.getUint8(1)
-            };
-
-            if (!that.handler[tid]) {
+            if (!request) {
 
                 // if there is no handler just skip this package
 
-                offset += 9 + res.pdu.byte_count;
-
-                hasMore = offset < data.byteLength;
+                offset += 9 + byte_count;
 
                 continue;
                
             }
 
             // cleartimeout
-           
-            clearTimeout(that.handler[tid].timeout); 
+
+            clearTimeout(request.timeout); 
 
             // handle fc response
        
-            var rHandler;
-
-            if (res.pdu.fc > 0x80) {
-           
-                that.handler[tid].callback.reject();
-
-                offset += 9 + res.pdu.byte_count;
-                hasMore = offset < data.byteLength;
-
-                continue;
-            
-            }
-
-            rHandler = that._responseHandler[res.pdu.fc];
-
-
-            if (!rHandler) {
-
-                var error = {
-                    'errCode'   : 'noResponseHandler',
-                    'fc'        : res.pdu.fc
-                };
-
-                that.fire('error', [ error ]);
-                that.handler[tid].callback.reject(error);
-
-                offset += 9 + res.pdu.byte_count;
-
-                hasMore = offset < data.byteLength;
-
-                continue;
-
-            } 
-      
-            var uHandler = that.handler[tid];
-
-            // send resolve to the handler
-
-            res.pdu.data = rHandler(res, offset, data, uHandler.requestPacket); 
-
-            // handle data by function code
-
-            if (res.pdu.data) {
-
-                uHandler.callback.resolve(res.pdu.data, uHandler.request);
-
-            } else {
-
-                uHandler.callback.resolve(uHandler.request);
-
-            }
-               
+            request.handleResponse(data, offset);     
+              
             // delete the handler
 
-            delete that.handler[tid];
+            delete this._requests[tid];
 
-            offset += 7 + 2 + res.pdu.byte_count;
-
-            hasMore = offset < data.byteLength;
+            offset += 7 + 2 + byte_count;
         
         }
-
-    };
-
-    this._responseHandler = { };
-
-    this._responseHandler[1] = function (response, offset, data, request) {
-        
-        var dv = new DataView(data, offset + 9, response.pdu.byte_count),
-            fc_data = [], i, t, j, mask,
-            dvReq = new DataView(request, 0, request.byteLength),
-            count = dvReq.getUint16(10);
-            
-
-        for (i = 0; i < response.pdu.byte_count; i += 1) {
-        
-            t = dv.getUint8(i);
-
-            for (j = 0; j < 7; j += 1) {
-            
-                mask = 1 << j;
-
-                fc_data.push(t & mask !== 0);
-
-                count -= 1;
-
-                if (count === 0) {
-                    break;
-                }
-
-            }
-
-        }
-
-       return fc_data; 
-
-    };
-
-    this._responseHandler[4] = function (response, offset, data) {
-
-        var dv = new DataView(data, offset + 7 + 2, response.pdu.byte_count),
-            fc_data = [];
-
-        for (var i = 0; i < response.pdu.byte_count / 2; i += 1) {
-        
-            fc_data.push(dv.getUint16(i * 2));
-        
-        }
-
-        return fc_data;
-    
-    };
-
-    this._responseHandler[5] = function (response, offset, data) {
-    
-/*            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
-            fc_data = []; */
-
-        return null;
-    
-    };
-
-    this._responseHandler[6] = function (response, offset, data) {
-   
-/*            var dv = new DataView(data, offset + 9, response.pdu.byte_count),
-            fc_data = []; */
-
-        return null;
-    
-    };
-
-    this._createMBAP = function (packet, id) {
-    
-        var dv = new DataView (packet, 0, 7);
-
-        dv.setUint16(MBAP_TID, id);    // Transaction ID
-        dv.setUint16(MBAP_PID, 0);     // Modbus Protocol ID
-        dv.setUint16(MBAP_LEN, 6);     //
-        dv.setUint8(MBAP_UID, 255);    // Unit Identifier
 
     };
 
     this._createNewId = function () {
 
         this.id = (this.id + 1) % 10000;
-    
+   
+        return this.id;
+
     };
 
-    this._sendPacket = function (packet) {
-        
+    this._sendPacket = function (request) {
+       
+        // just push the request to the queue 
         if (arguments.length > 0) {
-            this._pQueue.push(packet);
+            this._requestQueue.push(request);
         }
 
+        // invalid states for sending packages
         if (this._isWaiting || !this.inState('online')) {
             return;
         }
 
-        if (this._pQueue.length === 0) {
+        // no requests in line
+        if (this._requestQueue.length === 0) {
             return;
         }
 
         this._isWaiting = true;
 
-        var that    = this,
-            packet  = this._pQueue.shift();
+        var request = this._requestQueue.shift();
+
+        // Before sending set the timeout for this request
+
+        var timeout = setTimeout(function () {
+ 
+            if (this.inState('error')) {
+                request.reject({ errCode: 'error' });
+                return;
+            }
+
+            this.setState('error');
+            request.reject({ errCode: 'timeout' });
+            this.fire('error', [ { errCode: 'timeout' }]); 
+       
+            delete this._requests[request.id];
+
+        }.bind(this), this.timeout);
+
+        request.setTimeout(timeout);
+
+        // Send the packet
 
         chrome.sockets.tcp.send(
 
-            this.socketId, packet, function (sendInfo) {
+            this.socketId, request.packet, function (sendInfo) {
    
             if (sendInfo.resultCode < 0) {
             
                 console.log('ModbusClient', 'A error occured while sending packet.', sendInfo.resultCode);
 
-                that.setState('error');
-                that._isWaiting = false;
+                this.setState('error');
+                this._isWaiting = false;
 
                 return;
 
             }
 
-            that._isWaiting = false;
+            this._isWaiting = false;
 
-            that._sendPacket();
+            this._sendPacket();
         
-        });
+        }.bind(this));
 
     };
 
-    this._setCallbackHandler = function (handler, packet, id, request) {
 
-        var that = this;
-
-        this.handler[id] = {
-            'callback'      : handler,
-            'requestPacket' : packet,
-            'request'       : request
-        };
-
-        this.handler[id].timeout = setTimeout(function () {
-
-            if (that.inState('error')) {
-                handler.reject({ errCode: 'error' });
-                return;
-            }
-
-            that.setState('error');
-            handler.reject({ errCode: 'timeout' });
-            that.fire('error', [ { errCode: 'timeout' }]);
-
-        }, this.timeout);
-
-    };
-
-    this._readCoils = function (regNo, regCount) {
-    
-        var defer = $.Deferred();
-
-        if (!this.inState('online')) {
-            defer.reject();
-            return defer.promise();
-        }
-
-        var packet  = new ArrayBuffer(12),      // determine the length in byte
-            body    = new DataView(packet, 7, 5);
-
-        var id = this.id;
-
-        this._createMBAP(packet, id);
-
-        body.setUint8(BODY_FC, READ_COILS);     // Function Code Read Coils = 1
-        body.setUint16(BODY_START, regNo);      // Start Register
-        body.setUint16(BODY_COUNT, regCount);   // Register Count
-
-        var data = new DataView(packet, 0, 12);
-
-        this._setCallbackHandler(defer, packet, id, { 
-            start: regNo, 
-            count: regCount 
-        });
-
-        this._createNewId();
-
-        this._sendPacket(packet);
-
-        return defer.promise();
-    
-    };
-
-    this._readInputRegisters = function (regNo, regCount) {
-   
-        var defer = $.Deferred();
-
-        if (!this.inState('online')) {
-            defer.reject();
-            return defer.promise();
-        }
-
-        var packet  = new ArrayBuffer(12),        
-            body    = new DataView(packet, 7, 5),
-            id      = this.id;
-
-        this._createMBAP(packet, id);
-
-        body.setUint8(BODY_FC, READ_INPUT_REGISTERS);
-        body.setUint16(BODY_START, regNo);
-        body.setUint16(BODY_COUNT, regCount);
-
-        this._setCallbackHandler(defer, packet, id, {
-            start: regNo,
-            count: regCount
-        });
-
-        this._createNewId();
-
-        this._sendPacket(packet);
-
-        return defer.promise();
-
-    };
-
-    this._writeSingleCoil = function (addr, value) {
-    
-        var defer = $.Deferred();
-
-        if (!this.inState('online')) {
-            defer.reject();
-            return defer.promise();
-        }
-
-        var packet  = new ArrayBuffer(12),
-            body    = new DataView(packet, 7, 5),
-            id      = this.id;
-
-        this._createMBAP(packet, id);
-
-        body.setUint8(BODY_FC, WRITE_SINGLE_COIL);
-        body.setUint16(BODY_START, addr);
-        body.setUint16(BODY_COUNT, value?65280:0);
-    
-        this._setCallbackHandler(defer, packet, id, {
-            address: addr,
-            value: value
-        });
-
-        this._createNewId();
-
-        this._sendPacket(packet);
-
-        return defer.promise();
-
-    };
-
-    this._writeSingleRegister = function (regNo, value) {
-    
-        var defer = $.Deferred();
-
-        if (!this.inState('online')) {
-            defer.reject();
-            return defer.promise();
-        }
-
-        var packet  = new ArrayBuffer(12),
-            body    = new DataView(packet, 7, 5),
-            id      = this.id;
-
-        this._createMBAP(packet, id);
-
-        body.setUint8(BODY_FC, WRITE_SINGLE_REGISTER);
-        body.setUint16(BODY_START, regNo);
-        body.setUint16(BODY_COUNT, value);
-
-        this._setCallbackHandler(defer, packet, id, {
-        
-            address: regNo,
-            value: value
-
-        });
-
-        this._createNewId();
-
-        this._sendPacket(packet);
-
-        return defer.promise();
-
-    };
-
-    chrome.sockets.tcp.onReceive.addListener(this._receiveListener);
+    chrome.sockets.tcp.onReceive.addListener(this._receiveListener.bind(this));
 
 };
 
 
 ModbusClient.inherits(StateMachine);
 
+ModbusClient.method('readCoils', function (start, count) {
 
-ModbusClient.method('readCoils', function (regNo, regCount) {
+    var request = new ReadCoilsRequest(this._createNewId(), start, count);
 
-    return this._readCoils(regNo, regCount);
+    if (!this.inState('online')) {
+        request.reject({ errCode: 'offline' });
+        return request.getPromise();
+    }
+
+    this._requests[request.id] = request;
+
+    this._sendPacket(request);
+
+    return request.getPromise();
+
+});
+
+ModbusClient.method('readHoldingRegisters', function (start, count) {
+
+    var request = new ReadHoldingRegistersRequest(this._createNewId(), start, count);
+
+    if (!this.inState('online')) {
+        request.reject({ errCode: 'offline' });
+        return request.getPromise();
+    }
+
+    this._requests[request.id] = request;
+
+    this._sendPacket(request);
+
+    return request.getPromise();
 
 });
 
-ModbusClient.method('readInputRegisters', function (regNo, regCount) {
 
-    return this._readInputRegisters(regNo, regCount);
+ModbusClient.method('readInputRegisters', function (start, count) {
+
+    var request = new ReadInputRegistersRequest(this._createNewId(), start, count);
+
+    if (!this.inState('online')) {
+        request.reject({ errCode: 'offline' });
+        return request.getPromise();
+    }
+
+    this._requests[request.id] = request;
+
+    this._sendPacket(request);
+
+    return request.getPromise();
 
 });
 
-ModbusClient.method('writeSingleCoil', function (regNo, value) {
-            
-    return this._writeSingleCoil(regNo, value);
+ModbusClient.method('writeSingleCoil', function (address, value) {
+
+    var request = new WriteSingleCoilRequest(this._createNewId(), address, value);
+
+    if (!this.inState('online')) {
+        request.reject({ errCode: 'offline' });
+        return request.getPromise();
+    }
+
+    this._requests[request.id] = request;
+
+    this._sendPacket(request);
+
+    return request.getPromise();
+
 });
 
-ModbusClient.method('writeSingleRegister', function (regNo, value) {
+ModbusClient.method('writeSingleRegister', function (address, value) {
 
-    return this._writeSingleRegister(regNo, value);
+    var request = new WriteSingleRegisterRequest(this._createNewId(), address, value);
+
+    if (!this.inState('online')) {
+        request.reject({ errCode: 'offline' });
+        return request.getPromise();
+    }
+
+    this._requests[request.id] = request;
+
+    this._sendPacket(request);
+
+    return request.getPromise();
 
 });
+
 
 ModbusClient.method('connect', function (host, port) {
 

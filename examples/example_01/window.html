@@ -5,21 +5,93 @@
 
         <title>Chrome Modbus Example 01</title>
 
+        <link rel="stylesheet" type="text/css" href="style.css" />
+
     </head>
 
     <body>
 
-        <div id="console">
-            <button id="start">Start</button>
+        <div id="connect" class="page">
+
+            <h1>Connection Setup</h1>
+
+            <div class="content">
+
+                <label for="host">Host</label>
+                <input id="host" type="text" />
+                <label for="port">Port</label>
+                <input id="port" type="number" />
+                <button id="connect_button">Connect</button>          
+
+            </div>
         </div>
 
-        <div id="reg1"></div>
-        <div id="reg2"></div>
-        <div id="reg3"></div>
-        <div id="reg4"></div>
+        <div id="console" class="page">
+            <h1>Function Codes</h1>
 
-        <div id="log"></div>
+            <div class="menu">
+                <button id="disconnect_button">Disconnect</button>
+                <button id="toggle_fc01">FC 01</button>
+                <button id="toggle_fc03">FC 03</button>
+                <button id="toggle_fc04">FC 04</button>
+                <button id="toggle_fc05">FC 05</button>
+                <button id="toggle_fc06">FC 06</button>
+            </div>
 
+            <div class="content">
+
+                <div id="read_coils" class="subpage">
+                    <h1>Read Coils (FC01)</h1>
+                    <label for="readCoilsStart">Start</label>
+                    <input type="number" id="readCoilsStart" />
+                    <label for="readCoilsCount">Count</label>
+                    <input type="number" id="readCoilsCount" />
+                    <button id="executeReadCoilsButton">Execute</button>
+                    <div class="log"></div>
+                </div>
+                <div id="read_holding_registers" class="subpage">
+                    <h1>Read Holding Registers (FC03)</h1>
+                    <label for="readHoldingRegistersStart">Start</label>
+                    <input type="number" id="readHoldingRegistersStart" />
+                    <label for="readHoldingRegistersCount">Count</label>
+                    <input type="number" id="readHoldingRegistersCount" />
+                    <button id="executeReadHoldingRegistersButton">Execute</button>
+                    <div class="log"></div>
+                </div>
+
+                <div id="read_input_registers" class="subpage">
+                    <h1>Read Input Registers (FC04)</h1>
+                    <label for="readInputRegistersStart">Start</label>
+                    <input type="number" id="readInputRegistersStart" />
+                    <label for="readInputRegistersCount">Count</label>
+                    <input type="number" id="readInputRegistersCount" />
+                    <button id="executeReadInputRegistersButton">Execute</button>
+                    <div class="log"></div>
+                </div>
+                <div id="write_single_coil" class="subpage">
+                    <h1>Write Single Coil (FC05)</h1>
+                    <label for="writeSingleCoilAddress">Address</label>
+                    <input type="number" id="writeSingleCoilAddress" />
+                    <label for="writeSingleCoilValue">Value</label>
+                    <input type="number" id="writeSingleCoilValue" />
+                    <button id="executeWriteSingleCoilButton">Execute</button>
+                    <div class="log"></div>
+                </div>
+                <div id="write_single_register" class="subpage">
+                    <h1>Write Single Register (FC06)</h1>
+                    <label for="writeSingleRegisterAddress">Address</label>
+                    <input type="number" id="writeSingleRegisterAddress" />
+                    <label for="writeSingleRegisterValue">Value</label>
+                    <input type="number" id="writeSingleRegisterValue" />
+                    <button id="executeWriteSingleRegisterButton">Execute</button>
+                    <div class="log"></div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div id="status" class="ok">Ready</div>
 
 
         <script src="jquery.min.js"></script>
