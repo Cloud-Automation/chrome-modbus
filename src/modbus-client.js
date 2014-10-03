@@ -722,10 +722,10 @@ ModbusClient.method('connect', function (host, port) {
 
                 console.log('ModbusClient', 'Connection failed.', result);
 
-                that.fire('connect_error', {
+                that.fire('connect_error', [{
                     errCode: 'connectionError',
                     result: result
-                });
+                }]);
 
                 return;
             

@@ -48,7 +48,7 @@ proto.connectionFailure = function () {
     this.client.on('connect_error', failureCallback);
     this.client.on('connected', successCallback);
 
-    expectCall(failureCallback)().times(1);
+    expectCall(failureCallback)(_).times(1);
     expectCall(successCallback)().times(0);
 
     this.client.connect('127.0.0.1', 502);
