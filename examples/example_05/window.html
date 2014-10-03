@@ -3,6 +3,8 @@
 
     <head>
         <title>Chrome Modbus Server with Command/Status Register</title>
+
+        <link rel="stylesheet" type="text/css" href="style.css" />
     </head>
 
     <body>
@@ -20,22 +22,86 @@
 
         </div>
 
-        <div id="input_registers">
+        <ul id="register" class="tabs">
+            <li data-for="clients" class="active">Clients</li>
+            <li data-for="coils">Coils</li>
+            <li data-for="input_registers">Input Register</li>
+            <li data-for="holding_registers">Holding Register</li>
+        </ul>
+
+        <div id="clients" class="tab visible">
 
             <table>
 
                 <thead>
                     <tr>
                         <th>Index</th>
-                        <th>Value ( Dez )</th>
-                        <th>Value ( Hex )</th>
-                        <th>Value ( Bin )</th>
+                        <th>IP</th>
+                        <th>Port</th>
+                    </tr>
+                </thead>
+                <tbody id="clients_body">
+                </tbody>
+
+            </table>
+
+
+        </div>
+
+        <div id="coils" class="tab">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody id="coils_body">
+                </tbody>
+
+            </table>
+
+
+        </div>
+
+        <div id="input_registers" class="tab">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Value ( Dec. )</th>
+                        <th>Value ( Hex. )</th>
+                        <th>Value ( Bin. )</th>
                     </tr>
                 </thead>
                 <tbody id="input_registers_body">
                 </tbody>
 
             </table>
+
+        </div>
+
+        <div id="holding_registers" class="tab">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Value ( Dec. )</th>
+                        <th>Value ( Hex. )</th>
+                        <th>Value ( Bin. )</th>
+                    </tr>
+                </thead>
+                <tbody id="holding_registers_body">
+                </tbody>
+
+            </table>
+
 
         </div>
 

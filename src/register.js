@@ -32,12 +32,12 @@ Register = function (client, loop, start) {
     
     this._cmd_id     = 0; 
 
-    this._loop.readInputRegisters(this._start, 4);
+    this._loop.readHoldingRegisters(this._start, 4);
 
-    this._update_status = function (data) {
+    this._update_status = function (inputRegisters, holdingRegisters) {
 
-        var status_reg = data[this._start],
-            status_arg = data[this._start + 1];
+        var status_reg = holdingRegisters[this._start],
+            status_arg = holdingRegisters[this._start + 1];
 
         var s_1     = 0x0001,
             s_2     = 0x0002,

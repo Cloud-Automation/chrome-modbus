@@ -46,6 +46,11 @@ var ModbusServerClient = function (info, server, simDelay) {
 
             console.log('ModbusServerClient', 'Function Code of request is', request.body.fc);
 
+            if (request.body.fc === 0x03) {
+                request.body.adr = body.getUint16(1);
+                request.body.cnt = body.getUint16(3);
+            } 
+            
             if (request.body.fc === 0x04) {
             
                 request.body.adr = body.getUint16(1);
@@ -77,6 +82,47 @@ var ModbusServerClient = function (info, server, simDelay) {
         console.log('ModbusServerClient', 'Handling request.');
 
         var ret_buffer, ret_head_dv, ret_body_dv;
+
+        if (request.body.fc === 0x03) {
+       
+            console.log('ModbusServerClient', 'Preparing response for fc 0x03');
+
+            ret_buffer = new ArrayBuffer(7 + 2 + request.body.cnt * 2);
+
+            // MBAP
+            ret_head_dv = new DataView(ret_buffer, 0, 7);
+
+            ret_head_dv.setUint16(0, request.header.tid);
+            ret_head_dv.setUint16(2, request.header.pid);
+            ret_head_dv.setUint16(4,  1 + 2 + request.body.cnt * 2);
+            ret_head_dv.setUint8(6, request.header.uid);
+
+            // BODY
+            ret_body_dv = new DataView(ret_buffer, 7, 2 + request.body.cnt * 2);
+
+            console.log('ModbusServerClient', 'Request body count', request.body.cnt);
+
+            ret_body_dv.setUint8(0, 3);
+            ret_body_dv.setUint8(1, request.body.cnt * 2);
+
+            for (var i = 0; i < request.body.cnt; i += 1) {
+           
+                console.log('ModbusServerClient', 'HoldingRegister with index', 
+                            request.body.adr + i,
+                            'has value', 
+                            this._server.getHoldingRegister(request.body.adr + i));
+
+                ret_body_dv.setUint16(
+                    2 + (i * 2), 
+                    this._server.getHoldingRegister(request.body.adr + i));
+
+            }
+
+            this._server.fire('read_holding_registers', 
+                              [ request.body.adr, request.body.cnt ]);
+
+        }
+
 
         if (request.body.fc === 0x04) {
        
@@ -133,9 +179,9 @@ var ModbusServerClient = function (info, server, simDelay) {
 
             ret_body_dv = new DataView(ret_buffer, 7, 5);
 
-            console.log('ModbusServerClient', 'Writing Input Register');
+            console.log('ModbusServerClient', 'Writing Holding Register');
 
-            this._server.setInputRegister(request.body.adr, request.body.val);
+            this._server.setHoldingRegister(request.body.adr, request.body.val);
 
             this._server.fire('write_single_register', [request.body.adr, request.body.val]);
 
@@ -258,6 +304,14 @@ ModbusServerClient.method('getInfo', function () {
 
 });
 
+ModbusServerClient.method('close', function () {
+
+    chrome.sockets.tcp.disconnect(this._client_socket_id, function () {
+    
+    });
+
+});
+
 ServerRegister = function (start, server) {
 
     if (!(this instanceof ServerRegister)) {
@@ -370,21 +424,31 @@ ModbusServer = function (host, port, simDelay) {
         return new ModbusServer(host, port, simDelay);
     }
 
-    Events.call(this);
+    StateMachine.call(this, 'offline');
 
     this._host                  = host;
     this._port                  = port;
     this._simDelay              = simDelay;
 
     this._socket_id             = null;
-    this._is_connected          = false;
 
     this._clients               = [];
 
-    this._input_register_offset = 0;
-
     this._input_register        = [];
+    this._holding_register      = [];
     this._coils                 = []; 
+
+    this.on('state_changed', function (oldState, newState) {
+    
+        if (newState !== 'offline') {
+            return;
+        }
+
+        for (var i in this._clients) {
+            this._clients[i].close();
+        }
+    
+    });
 
     this._create_new_client = function (info) {
 
@@ -403,7 +467,7 @@ ModbusServer = function (host, port, simDelay) {
 
 };
 
-ModbusServer.inherits(Events);
+ModbusServer.inherits(StateMachine);
 
 ModbusServer.method('getClients', function () {
 
@@ -439,7 +503,9 @@ ModbusServer.method('start', function () {
 
             console.log('ModbusServer', 'Server is listening on',
                         that._host, that._port);
-       
+      
+            that.setState('online');
+
             chrome.sockets.tcpServer.onAccept.addListener(
                 that._create_new_client.bind(that));
 
@@ -455,21 +521,15 @@ ModbusServer.method('stop', function () {
 
     console.log('ModbusServer', 'Server stopped.');
 
+    this.setState('offline');
+
     chrome.sockets.tcpServer.close(this._socket_id, function () { });
-
-});
-
-ModbusServer.method('setInputRegisterOffset', function (offset) {
-
-    this._input_register_offset = offset;
-
-    return this;
 
 });
 
 ModbusServer.method('setInputRegister', function (adr, value) {
 
-    this._input_register[this._input_register_offset + adr] = value;
+    this._input_register[adr] = value;
 
     return this;
 
@@ -477,13 +537,33 @@ ModbusServer.method('setInputRegister', function (adr, value) {
 
 ModbusServer.method('getInputRegister', function (adr) {
 
-    if (!this._input_register[this._input_register_offset + adr]) {
-        this._input_register[this._input_register_offset + adr] = 0;
+    if (!this._input_register[adr]) {
+        this._input_register[adr] = 0;
     }
 
-    return this._input_register[this._input_register_offset + adr];
+    return this._input_register[adr];
 
 });
+
+ModbusServer.method('setHoldingRegister', function (adr, value) {
+
+    this._holding_register[adr] = value;
+
+    return this;
+
+});
+
+ModbusServer.method('getHoldingRegister', function (adr) {
+
+    if (!this._holding_register[adr]) {
+        this._holding_register[adr] = 0;
+    }
+
+    return this._holding_register[adr];
+
+});
+
+
 
 ModbusServer.method('createNewRegister', function (start) {
 
