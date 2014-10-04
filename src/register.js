@@ -190,6 +190,42 @@ Register = function (client, loop, start) {
 
 Register.inherits(StateMachine);
 
+Register.method('execute', function (command, arg) {
+
+    return this._execute(command, arg);
+
+});
+
+Register.method('getStateflag_1', function () {
+
+    return this.status.stateflag_1;
+
+});
+
+Register.method('getStateflag_2', function () {
+
+    return this.status.stateflag_2;
+
+});
+
+Register.method('getStateflag_3', function () {
+
+    return this.status.stateflag_3;
+
+});
+
+Register.method('getStateflag_4', function () {
+
+    return this.status.stateflag_4;
+
+});
+
+Register.method('getState', function () {
+
+    return this.status.state;
+
+});
+
 Register.method('close', function () {
 
     this._loop.off(this._loop_listener_id);
