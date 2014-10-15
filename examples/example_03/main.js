@@ -146,11 +146,12 @@ $(document).ready(function () {
 
         ok_clicked_handler = consolePage.on('ok_clicked', function () {
         
-            var cmd = consolePage.getCommand(); 
+            var cmd     = consolePage.getCommand(),
+                param   = consolePage.getParameter();
 
-            App.log('Executing command ' + cmd);
+            App.log('Executing command', cmd, 'with Parameter', param);
 
-            reg._execute(cmd).then(function () {
+            reg._execute(cmd, param).then(function () {
        
                 App.log('Command execution successfull.');
         

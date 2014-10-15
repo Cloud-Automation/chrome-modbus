@@ -360,8 +360,8 @@ ServerRegister = function (start, server) {
         s += this._status.command_ex << 14;
         s += this._status.command_fail << 15;
 
-        this._server.setInputRegister(this._start, s);
-        this._server.setInputRegister(this._start + 1, this._status.arg);
+        this._server.setHoldingRegister(this._start, s);
+        this._server.setHoldingRegister(this._start + 1, this._status.arg);
 
         console.log('ServerRegister', 'Updated Server Register', s, s.toString(16), s.toString(2));
     

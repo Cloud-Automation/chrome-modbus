@@ -150,6 +150,12 @@
     
     });
 
+    ConsolePage.method('getParameter', function () {
+    
+        return parseInt($('#c_arg').val());
+    
+    });
+
     PageManager = function () {
     
         if (!(this instanceof PageManager)) {

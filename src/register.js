@@ -125,8 +125,24 @@ Register = function (client, loop, start) {
 
         console.log('Register', 'Writing to modbus server.', this.cmd_reg);
 
-        this._client.writeSingleRegister(this._start + 2, this.cmd_reg)
-            .fail(function (err) {
+        var promise_1, promise_2;
+
+        if (!isNaN(first.param)) {
+        
+            console.log('Register', 'Execution sets parameter.', first.param);
+
+            promise_1 = this._client.writeSingleRegister(this._start + 3, first.param);
+        
+            promise_2 = promise_1.then(this._client.writeSingleRegister(this._start + 2, this.cmd_reg));
+
+        } else {
+
+            promise_2 = this._client.writeSingleRegister(this._start + 2, this.cmd_reg);
+
+        }
+
+
+        promise_2.fail(function (err) {
    
                 console.error('Register', 'Sending command to PLC failed.', err);
 

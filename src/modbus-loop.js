@@ -146,6 +146,12 @@ ModbusLoop = function (client, duration) {
             }.bind(this));
 
     };
+
+    this.on('state_changed', function (oldState, newState) {
+    
+        console.log('ModbusLoop', 'Switching from State', oldState, ' to State', newState);
+
+    });
 }
 
 ModbusLoop.inherits(StateMachine);
@@ -179,24 +185,8 @@ ModbusLoop.method('start', function () {
 
 ModbusLoop.method('stop', function () {
 
+    console.log('ModbusLoop', 'Stopping loop.');
+
     this.setState('stop');
 
 });
-
-/*
-client = new ModbusClient();
-
-loop = new Loop(); // free running
-
-loop.readInputRegisters(10, 4).then(function (data) {
-
-});
-
-loop.readInputRegisters(14, 4).then(function (data) {
-
-});
-
-// combine those
-
-loop.start();
-*/
