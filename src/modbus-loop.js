@@ -130,6 +130,17 @@ ModbusLoop = function (client, duration) {
             return;
         }
 
+        var len_1 = this._readInputRegistersList.getList().length,
+            len_2 = this._readHoldingRegistersList.getList().length,
+            len = len_1 + len_2;
+
+        if (len === 0) {
+        
+            setTimeout(this._executeLoop.bind(this), 1000);
+            return;
+
+        }
+
         var loop_1 = this._executeInputRegistersLoop(),
             loop_2 = this._executeHoldingRegistersLoop();
 
