@@ -5,6 +5,10 @@ TST	= test
 
 all: all-examples min
 
+min-notest: $(SRC)/sugar.js $(SRC)/events.js $(SRC)/statemachine.js $(SRC)/modbus-client.js $(SRC)/range-list.js $(SRC)/modbus-loop.js $(SRC)/modbus-server.js $(SRC)/register.js
+	uglifyjs $(SRC)/sugar.js $(SRC)/events.js $(SRC)/statemachine.js $(SRC)/modbus-client.js $(SRC)/range-list.js $(SRC)/modbus-loop.js $(SRC)/modbus-server.js $(SRC)/register.js -o $(BIN)/modbus.min.js -c drop_console=true --enclose 	
+
+
 min: test $(SRC)/sugar.js $(SRC)/events.js $(SRC)/statemachine.js $(SRC)/modbus-client.js $(SRC)/range-list.js $(SRC)/modbus-loop.js $(SRC)/modbus-server.js $(SRC)/register.js
 	uglifyjs $(SRC)/sugar.js $(SRC)/events.js $(SRC)/statemachine.js $(SRC)/modbus-client.js $(SRC)/range-list.js $(SRC)/modbus-loop.js $(SRC)/modbus-server.js $(SRC)/register.js -o $(BIN)/modbus.min.js -c drop_console=true --enclose 	
 

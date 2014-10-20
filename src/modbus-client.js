@@ -151,16 +151,15 @@ ReadCoilsRequest.method('handleResponse', function (data, offset) {
   
         this.deferred.reject({ errCode: 'serverError' });
 
-        return false;
+        return 2;
 
     }
 
 
     var dv          = new DataView(data, offset + 9, byte_count),
         fc_data     = [], i, t, j, mask,
-        count       = this.count,
-        fc_data     = []; 
-
+        count       = this.count;
+    
     for (i = 0; i < this.count; i += 1) {
     
         t = dv.getUint8(i);
@@ -183,7 +182,7 @@ ReadCoilsRequest.method('handleResponse', function (data, offset) {
 
     this.deferred.resolve(fc_data, this);
 
-    return true;
+    return byte_count + 2;
 
 });
 
@@ -237,7 +236,7 @@ ReadHoldingRegistersRequest.method('handleResponse', function (data, offset) {
   
         this.deferred.reject({ errCode: 'serverError' });
 
-        return false;
+        return 2;
 
     }
 
@@ -252,7 +251,7 @@ ReadHoldingRegistersRequest.method('handleResponse', function (data, offset) {
 
     this.deferred.resolve(fc_data, this);
 
-    return true;
+    return byte_count + 2;
 
 });
 
@@ -307,7 +306,7 @@ ReadInputRegistersRequest.method('handleResponse', function (data, offset) {
   
         this.deferred.reject({ errCode: 'serverError' });
 
-        return false;
+        return 2;
 
     }
 
@@ -322,7 +321,7 @@ ReadInputRegistersRequest.method('handleResponse', function (data, offset) {
 
     this.deferred.resolve(fc_data, this);
 
-    return true;
+    return byte_count + 2;
 
 });
 
@@ -369,22 +368,23 @@ WriteSingleCoilRequest.method('setValue', function (value) {
 WriteSingleCoilRequest.method('handleResponse', function (data, offset) {
 
     var mbap        = new DataView(data, offset, 7),
-        pdu         = new DataView(data, offset + 7, 2),
+        pdu         = new DataView(data, offset + 7, 5),
         fc          = pdu.getUint8(0),
-        byte_count  = pdu.getUint8(1);
+        start       = pdu.getUint8(1),
+        value       = pdu.getUint16(3);
 
     if (fc > 0x80) {
   
         this.deferred.reject({ errCode: 'serverError' });
 
-        return false;
+        return 2;
 
     }
 
 
     this.deferred.resolve(this);
 
-    return true;
+    return 5;
 
 });
 
@@ -430,22 +430,22 @@ WriteSingleRegisterRequest.method('setValue', function (value) {
 WriteSingleRegisterRequest.method('handleResponse', function (data, offset) {
 
     var mbap        = new DataView(data, offset, 7),
-        pdu         = new DataView(data, offset + 7, 2),
+        pdu         = new DataView(data, offset + 7, 5),
         fc          = pdu.getUint8(0),
-        byte_count  = pdu.getUint8(1);
+        start       = pdu.getUint16(1),
+        value       = pdu.getUint16(3);
 
     if (fc > 0x80) {
   
         this.deferred.reject({ errCode: 'serverError' });
 
-        return false;
+        return 2;
 
     }
 
     this.deferred.resolve(this);
 
-    return true;
-
+    return 5;
 
 });
 
@@ -495,15 +495,21 @@ ModbusClient = function (timeout) {
 
         var offset  = 0,
             data    = resp.data,
-            request;
+            request,
+            byte_count;
+
+        console.log('ModbusClient', 'Received new Package with size', data.byteLength);
 
         while (offset < data.byteLength) {
 
+            if (data.byteLength - offset < 7) {
+                console.log('ModbusClient', 'Wrong packet size.');
+                return;
+            }
+
             // read the header
             var mbap        = new DataView(data, offset + 0, 7),
-                tid         = mbap.getUint16(0),
-                pdu         = new DataView(data, offset + 7, 2),
-                byte_count  = pdu.getUint8(1);
+                tid         = mbap.getUint16(0);
 
             request = this._requests[tid];
 
@@ -511,9 +517,10 @@ ModbusClient = function (timeout) {
 
                 // if there is no handler just skip this package
 
-                offset += 9 + byte_count;
+                // offset += 7 + 2 + byte_count;
 
-                continue;
+                // TODO: handle this with a list of fc -> byte_count                 
+                return;
                
             }
 
@@ -523,13 +530,14 @@ ModbusClient = function (timeout) {
 
             // handle fc response
        
-            request.handleResponse(data, offset);     
+            byte_count = request.handleResponse(data, offset);     
               
             // delete the handler
 
             delete this._requests[tid];
 
-            offset += 7 + 2 + byte_count;
+            offset += 7;
+            offset += byte_count;
         
         }
 
@@ -594,6 +602,7 @@ ModbusClient = function (timeout) {
                 console.log('ModbusClient', 'A error occured while sending packet.', sendInfo.resultCode);
 
                 this.setState('error');
+                this.fire('error', { errCode: 'sendError' });
                 this._isWaiting = false;
 
                 return;
@@ -759,7 +768,7 @@ ModbusClient.method('connect', function (host, port) {
 
                 that.setState('error');
 
-                that.fire('error');
+                that.fire('error', [{ errCode: 'ServerError' }]);
 
             });
 
