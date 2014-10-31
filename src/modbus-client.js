@@ -766,6 +766,14 @@ ModbusClient.method('connect', function (host, port) {
 
                 console.log('ModbusClient', 'OnReceiveError called.');
 
+                if (!that.inState('online')) {
+
+                    console.log('ModbusClient', 'Client is not in state online an a error occured. We ll just leave it be.');
+
+                    return;
+                }
+
+
                 that.setState('error');
 
                 that.fire('error', [{ errCode: 'ServerError' }]);
@@ -787,7 +795,7 @@ ModbusClient.method('connect', function (host, port) {
 
 });
 
-ModbusClient.method('disconnect', function () {
+ModbusClient.method('disconnect', function (cb) {
 
     var that = this;
 
@@ -800,10 +808,40 @@ ModbusClient.method('disconnect', function () {
         that.setState('offline');
 
         that.fire('disconnected');  
+
+        if (!cb) 
+            return;
+
+        cb();
    
     });
 
     return this;
+
+});
+
+ModbusClient.method('close', function (cb) {
+
+    this.disconnect(function () {
+
+        console.log('ModbusClient', 'Close socket.');
+
+        chrome.sockets.tcp.close(this.socketId, function () {
+    
+            console.log('ModbusClient', 'Client closed.');
+
+            this.setState('offline');
+
+            this.socketId = null;
+
+            this.fire('closed');
+
+            if (!cb)
+                return;
+    
+        }.bind(this));
+
+    }.bind(this));
 
 });
 
@@ -813,7 +851,14 @@ ModbusClient.method('reconnect', function () {
 
     console.log('ModbusClient', 'Reconnecting client.');
 
-    chrome.sockets.tcp.setPaused(this.socketId, false, function () {
+    this.close(function () {
+    
+        this.connect();
+    
+    
+    }.bind(this));
+
+/*    chrome.sockets.tcp.setPaused(this.socketId, false, function () {
 
         console.log('ModbusClient', 'Socket unpaused.');
 
@@ -860,5 +905,5 @@ ModbusClient.method('reconnect', function () {
         });    
     
     });
-
+*/
 });

@@ -1,61 +1,73 @@
 var Events = function () {
 
-    if (!(this instanceof Events)) {
+    if (!(this instanceof Events))
         return new Events();
-    }
 
-    this._cbList = { };
+    var cbList = { };
+
+    this.fire = function (name, args) {
+    
+        if (!cbList[name]) {
+
+            return;
+
+        }
+
+        for (var i in cbList[name]) {
+            
+            cbList[name][i].apply(this, args);
+        
+        }
+
+        return this;
+    
+    };
+
+    
+    this.fireLater = function (name, args) {
+
+        if (args === undefined) {
+
+            args = [];
+
+        }
+
+        return function () {
+
+            var aA  = Array.protoype.slice.call(arguments, 0),
+                a   = args.concat(aA);
+
+            this.fire(name, a.length > 0 ? a : undefined);
+
+        }.bind(this);
+
+    };
+
+    this.on = function (name, func) {
+
+        if (!cbList.hasOwnProperty(name)) {
+
+            cbList[name] = [];
+        
+        }
+
+        cbList[name].push(func);
+
+        return { 
+            name    : name, 
+            index   : cbList[name].length - 1 
+        };
+
+    };
+
+    this.off = function (id) {
+
+        cbList[id.name].splice(id.index);
+
+        return this;
+
+    };
 
 };
 
-Events.method('fire', function (name, args) {
 
-    if (!this._cbList[name]) {
-
-        return;
-
-    }
-
-    for (var i in this._cbList[name]) {
-        
-        this._cbList[name][i].apply(this, args);
-    
-    }
-
-});
-
-Events.method('fireLater', function (name, args) {
-
-    if (args === undefined) {
-        args = [];
-    }
-
-    return function () {
-
-        var a = args.concat(Array.prototype.slice.call(arguments,0));
-
-        this.fire(name, a.length>0?a:undefined);
-
-    }.bind(this);
-
-});
-
-Events.method('on', function (name, func) {
-
-    if (!this._cbList[name]) {
-        this._cbList[name] = [];
-    }
-
-    this._cbList[name].push(func);
-
-    return { name: name, index: this._cbList[name].length - 1 };
-
-});
-
-Events.method('off', function (id) {
-
-    this._cbList[id.name].splice(id.index);
-
-    return this;
-
-});
