@@ -8,26 +8,26 @@ var RangeList = function () {
      * Entries look like { start: x, end: y, items: [] }
      */
 
-    this._list = [];
+    var list = [];
 
-    this._shrink = function () {
+    var shrink = function () {
  
-        if (this._list.length === 1 ) {
+        if (list.length === 1 ) {
             return this;
         }
 
         var next, j = 0;
 
-        while (j < this._list.length - 1) {
+        while (j < list.length - 1) {
 
-            cur = this._list[j];
-            next = this._list[j + 1];
+            cur = list[j];
+            next = list[j + 1];
 
             if (cur.end >= next.start - 1 ) {
             
                 cur.end = Math.max(cur.end, next.end);
 
-                this._list.splice(j + 1, 1);
+                list.splice(j + 1, 1);
            
                 continue;
 
@@ -37,96 +37,98 @@ var RangeList = function () {
 
         }
     
-    };
+    }.bind(this);
 
-};
+    this.merge = function (start, end) {
 
-RangeList.method('merge', function (start, end) {
+        if (end <= start) {
+            return this;
+        }
 
-    if (end <= start) {
-        return this;
-    }
+        if (list.length === 0) {
 
-    if (this._list.length === 0) {
-
-        this._list.push({ start: start, end: end });
-        return this;
-
-    }
-
-    for (var i in this._list) {
-    
-        cur = this._list[i];
-
-        if (cur.start > end) {
-        
-            this._list.splice(i, 0, { start: start, end: end });
-            this._shrink();
-
+            list.push({ start: start, end: end });
             return this;
 
         }
 
-        if (cur.start >= start && cur.end > start) {
-            
-            if (cur.end < end) {
-
-                cur.start   = start;
-                cur.end     = start + end;
-
-                this._shrink();
-
-                return this;
-
-            }
-
-            if (cur.end >= end) {
+        for (var i in list) {
         
-                cur.start   = start;
-                cur.end     = cur.end;
+            cur = list[i];
 
-                this._shrink();
+            if (cur.start > end) {
+            
+                list.splice(i, 0, { start: start, end: end });
+                shrink();
 
                 return this;
-            
+
             }
 
+            if (cur.start >= start && cur.end > start) {
+                
+                if (cur.end < end) {
+
+                    cur.start   = start;
+                    cur.end     = start + end;
+
+                    shrink();
+
+                    return this;
+
+                }
+
+                if (cur.end >= end) {
+            
+                    cur.start   = start;
+                    cur.end     = cur.end;
+
+                    shrink();
+
+                    return this;
+                
+                }
+
+            }
+
+            if (cur.start < start && cur.end > start) {
+            
+                if (cur.end >= end) {
+
+                    shrink();
+
+                    return this;      
+                
+                }
+
+                if (cur.end < end) {
+                
+                    cur.end     = end;
+
+                    shrink();
+
+                    return this;
+
+                }
+
+            }
+     
         }
 
-        if (cur.start < start && cur.end > start) {
+        list.push({ start: start, end: end });
+
+        shrink();
         
-            if (cur.end >= end) {
+        return this;
 
-                this._shrink();
+    };
 
-                return this;      
-            
-            }
+    this.getList = function () {
 
-            if (cur.end < end) {
-            
-                cur.end     = end;
+        return list;
 
-                this._shrink();
+    };
 
-                return this;
+};
 
-            }
 
-        }
- 
-    }
-
-    this._list.push({ start: start, end: end });
-
-    this._shrink();
-    
-    return this;
-
-});
-
-RangeList.method('getList', function () {
-
-    return this._list;
-
-});

@@ -1,3 +1,5 @@
+//= include sugar.js
+
 var Events = function () {
 
     if (!(this instanceof Events))

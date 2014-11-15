@@ -10,7 +10,7 @@ Register = function (client, loop, start) {
      *  init -> ready -> executing -> ready
      */
 
-    StateMachine.call(this, 'ready');
+    StateMachine.call(this, 'init');
 
     var status = {
             stateflag_1     : false,
@@ -23,12 +23,11 @@ Register = function (client, loop, start) {
             cmd_err         : false,
             arg             : 0
         },
+        loopListenerId,
         queue = [],
-        cmdId = 0,
-        loopListenerId;
+        cmdId = 0;
 
     loop.readHoldingRegisters(start, 4);
-
 
     var updateStatus = function (inputRegisters, holdingRegisters) {
 
@@ -55,6 +54,15 @@ Register = function (client, loop, start) {
         status.cmd_err     = (status_reg & s_cidf) >> 15;
         status.arg         = status_arg;
 
+        if (this.inState('init')) {
+
+            console.log('Register', 'Initial command counter is', status.cmd_count);
+            cmdId = status.cmd_count;
+
+            this.setState('ready');
+
+        }
+
         this.fire('update_status', [status]);
 
     }.bind(this);
@@ -68,9 +76,11 @@ Register = function (client, loop, start) {
             return;
         }
 
-        if (this.inState('execution')) {
-            console.log('Register', 'Waiting, currently in execution state.');
+        if (!this.inState('ready')) {
+
+            console.log('Register', 'Waiting, currently not in the ready state.', this.getState());
             return;
+
         }
 
         this.setState('execution');
@@ -83,39 +93,34 @@ Register = function (client, loop, start) {
 
         var cmd         = command << 3,
             ex_flag     = 1 << 15,
-            that        = this,
             cmdReg      = cmdId + cmd + ex_flag;
 
         console.log('Register', 'Writing to modbus server.', cmdReg);
 
-        var promise_1, promise_2;
+        var promisses = [];
 
         if (first.param !== undefined) {
         
             console.log('Register', 'Execution sets parameter.', first.param);
 
-            promise_1 = client.writeSingleRegister(start + 3, first.param);
+            promisses.push(client.writeSingleRegister(start + 3, first.param));
         
-            promise_2 = promise_1.then(client.writeSingleRegister(start + 2, cmdReg));
+        } 
 
-        } else {
-
-            console.log('Register', 'Writing just one register.', this);
-
-            promise_2 = client.writeSingleRegister(start + 2, cmdReg);
-
-        }
+        promisses.push(client.writeSingleRegister(start + 2, cmdReg));
 
 
-        promise_2.fail(function (err) {
+        $.when.apply(this, promisses).fail(function (err) {
    
                 console.error('Register', 'Sending command to PLC failed.', err);
 
-                defer.reject({ errCode: 'modbusError' });
+                defer.reject({ 
+                    errCode: 'modbusError' 
+                });
 
-                that.setState('ready');
+                this.setState('ready');
     
-            }).then(function () {
+            }.bind(this)).then(function () {
             
                 console.log('Register', 'Sending command to PLC was successfull.');
 
@@ -123,24 +128,26 @@ Register = function (client, loop, start) {
 
                 timeout_id = setTimeout(function () {
 
-                    console.error('Register', 'PLC did not executed the command inside the timeframe.', update_count);
+                    console.error('Register', 'PLC did not executed the command inside the timeframe.', update_count, status);
 
-                    defer.reject({ errCode: 'timeout', update_count : update_count });
+                    defer.reject({ 
+                        errCode         : 'timeout', 
+                        update_count    : update_count 
+                    });
 
-                    that.setState('ready');
+                    this.setState('ready');
 
-                }, 5000);
+                }.bind(this), 5000);
 
-                handler_id = that.on('update_status', function (status) {
+                handler_id = this.on('update_status', function (status) {
 
                     update_count += 1;
 
-                    if (status.cmd_count === cmdId && 
-                        status.cmd_ex) { 
+                    if (status.cmd_count === cmdId && status.cmd_ex) { 
 
                         console.log('Register', 'Command executed.', status);
  
-                        that.off(handler_id);
+                        this.off(handler_id);
                         clearTimeout(timeout_id);
 
                         if (!status.cmd_err) {
@@ -157,13 +164,13 @@ Register = function (client, loop, start) {
 
                         }
 
-                        that.setState('ready');
+                        this.setState('ready');
 
                     }
 
-                });
+                }.bind(this));
 
-            });
+            }.bind(this));
 
     }.bind(this);
 
@@ -182,9 +189,7 @@ Register = function (client, loop, start) {
             'param'     : param
         });
 
-        if (this.inState('ready')) {
-            flush();
-        }
+        flush();
 
         return defer.promise();
 
@@ -210,7 +215,7 @@ Register = function (client, loop, start) {
 
     this.close = function () {
 
-        loop.off(LoopListenerId);
+        loop.off(loopListenerId);
 
         return this;
 

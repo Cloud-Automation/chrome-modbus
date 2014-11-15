@@ -1,3 +1,5 @@
+//= include range-list.js
+
 ModbusLoop = function (client, duration) {
 
     if (!(this instanceof ModbusLoop)) {
@@ -6,59 +8,56 @@ ModbusLoop = function (client, duration) {
 
     StateMachine.call(this, 'stop');
 
-    this._client                    = client;
+    var readInputRegistersList    = new RangeList(),
+        readHoldingRegistersList  = new RangeList(),
+        readCoilList              = new RangeList(),
+        inputRegisters            = [],
+        holdingRegisters          = [],
+        coils                     = [];
 
-    this._readInputRegistersList    = new RangeList();
-    this._readHoldingRegistersList  = new RangeList();
-    this._readCoilList              = new RangeList();
-
-    this._inputRegisters            = [];
-    this._holdingRegisters          = [];
-    this._coils                     = [];
-
-    this._client.on('disconnected', function () {
+    client.on('disconnected', function () {
     
         this.setState('stop');
 
     }.bind(this));
 
-    this._client.on('error', function () {
+    client.on('error', function () {
     
         this.setState('stop');
     
-    }.bind(this))
+    }.bind(this));
 
-    this._updateInputRegisters = function (start, data) {
+    var updateInputRegisters = function (start, data) {
     
         for (var i = 0; i < data.length; i += 1) {
 
-            this._inputRegisters[start + i] = data[i] ;           
+            inputRegisters[start + i] = data[i] ;           
                     
         }
 
-    };
+    }.bind(this);
 
-    this._updateHoldingRegisters = function (start, data) {
+    var updateHoldingRegisters = function (start, data) {
     
         for (var i = 0; i < data.length; i += 1) {
 
-            this._holdingRegisters[start + i] = data[i] ;           
+            holdingRegisters[start + i] = data[i] ;           
                     
         }
 
-    };
+    }.bind(this);
 
-    this._executeInputRegistersLoop = function () {
+    var executeInputRegistersLoop = function () {
  
         var promisses = [], cur, promise, inputsList, retPromise;
 
-        inputsList = this._readInputRegistersList.getList();
+        inputsList = readInputRegistersList.getList();
  
         for (var i = 0; i < inputsList.length; i += 1) {
    
             cur = inputsList[i];
 
-            promise = this._client.readInputRegisters(cur.start, cur.end - cur.start);
+            promise = client.readInputRegisters(cur.start, cur.end - cur.start);
 
             promisses.push(promise);
 
@@ -76,7 +75,7 @@ ModbusLoop = function (client, duration) {
 
             for (var i in args) {
             
-                this._updateInputRegisters(args[i][1].start, args[i][0]);
+                updateInputRegisters(args[i][1].getStart(), args[i][0]);
             
             }
         
@@ -84,19 +83,19 @@ ModbusLoop = function (client, duration) {
 
         return retPromise;
     
-    };
+    }.bind(this);
    
-    this._executeHoldingRegistersLoop = function () {
+    var executeHoldingRegistersLoop = function () {
  
         var promisses = [], cur, promise, inputsList, retPromise;
 
-        inputsList = this._readHoldingRegistersList.getList();
+        inputsList = readHoldingRegistersList.getList();
  
         for (var i = 0; i < inputsList.length; i += 1) {
    
             cur = inputsList[i];
 
-            promise = this._client.readHoldingRegisters(cur.start, cur.end - cur.start);
+            promise = client.readHoldingRegisters(cur.start, cur.end - cur.start);
 
             promisses.push(promise);
 
@@ -113,42 +112,42 @@ ModbusLoop = function (client, duration) {
             }
 
             for (var i in args) {
-            
-                this._updateHoldingRegisters(args[i][1].start, args[i][0]);
+           
+                updateHoldingRegisters(args[i][1].getStart(), args[i][0]);
             
             }
-        
+
         }.bind(this));
     
         return retPromise;
     
-    };
+    }.bind(this);
  
-    this._executeLoop = function () {
+    var executeLoop = function () {
 
         if (!this.inState('running')) {
             return;
         }
 
-        var len_1 = this._readInputRegistersList.getList().length,
-            len_2 = this._readHoldingRegistersList.getList().length,
-            len = len_1 + len_2;
+        var len_1   = readInputRegistersList.getList().length,
+            len_2   = readHoldingRegistersList.getList().length,
+            len     = len_1 + len_2;
 
         if (len === 0) {
         
-            setTimeout(this._executeLoop.bind(this), 1000);
+            setTimeout(executeLoop.bind(this), 1000);
             return;
 
         }
 
-        var loop_1 = this._executeInputRegistersLoop(),
-            loop_2 = this._executeHoldingRegistersLoop();
+        var loop_1 = executeInputRegistersLoop(),
+            loop_2 = executeHoldingRegistersLoop();
 
         $.when.apply(this, [ loop_1, loop_2 ]).then(function () {
  
-                this.fire('update', [ this._inputRegisters, this._holdingRegisters ]);
+                this.fire('update', [ inputRegisters, holdingRegisters ]);
  
-                this._executeLoop();
+                executeLoop();
           
             }.bind(this)).fail(function () {
             
@@ -156,48 +155,44 @@ ModbusLoop = function (client, duration) {
 
             }.bind(this));
 
+    }.bind(this);
+
+    this.readInputRegisters = function (start, count) {
+
+        // put the start and end into the list
+        readInputRegistersList.merge(start, start + count);
+
+        return this;
+
     };
 
-    this.on('state_changed', function (oldState, newState) {
-    
-        console.log('ModbusLoop', 'Switching from State', oldState, ' to State', newState);
+    this.readHoldingRegisters = function (start, count) {
 
-    });
-}
+        readHoldingRegistersList.merge(start, start + count);
+
+        return this;
+
+    };
+
+    this.start = function () {
+
+        console.log('ModbusLoop', 'Starting loop.');
+
+        this.setState('running');
+
+        executeLoop();
+
+    };
+
+    this.stop = function () {
+
+        console.log('ModbusLoop', 'Stopping loop.');
+
+        this.setState('stop');
+
+    };
+};
 
 ModbusLoop.inherits(StateMachine);
 
-ModbusLoop.method('readInputRegisters', function (start, count) {
 
-    // put the start and end into the list
-    this._readInputRegistersList.merge(start, start + count);
-
-    return this;
-
-});
-
-ModbusLoop.method('readHoldingRegisters', function (start, count) {
-
-    this._readHoldingRegistersList.merge(start, start + count);
-
-    return this;
-
-});
-
-ModbusLoop.method('start', function () {
-
-    console.log('ModbusLoop', 'Starting loop.');
-
-    this.setState('running');
-
-    this._executeLoop();
-
-});
-
-ModbusLoop.method('stop', function () {
-
-    console.log('ModbusLoop', 'Stopping loop.');
-
-    this.setState('stop');
-
-});
