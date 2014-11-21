@@ -1,4 +1,6 @@
 
+var register_debug_id = 0;
+
 Register = function (client, loop, start) {
 
     if (!(this instanceof Register)) {
@@ -11,6 +13,10 @@ Register = function (client, loop, start) {
      */
 
     StateMachine.call(this, 'init');
+
+    var rd_id = register_debug_id++;
+
+    console.log('Register',rd_id, 'Creating new instance.');
 
     var status = {
             stateflag_1     : false,
@@ -56,38 +62,40 @@ Register = function (client, loop, start) {
 
         if (this.inState('init')) {
 
-            console.log('Register', 'Initial command counter is', status.cmd_count);
+            console.log('Register', rd_id, 'Initial command counter is', status.cmd_count);
             cmdId = status.cmd_count;
 
             this.setState('ready');
 
         }
 
-        this.fire('update_status', [status]);
+        this.fire('update_status', [ status ]);
 
     }.bind(this);
 
     var flush = function () {
     
-        console.log('Register', 'Flushing latest command.');
+        console.log('Register',rd_id, 'Flushing latest command.');
 
         if (queue.length === 0) {
-            console.log('Register', 'Nothing to flush.');
+
+            console.log('Register',rd_id, 'Nothing to flush.');
             return;
+        
         }
 
         if (!this.inState('ready')) {
 
-            console.log('Register', 'Waiting, currently not in the ready state.', this.getState());
+            console.log('Register',rd_id, 'Waiting, currently not in the ready state.', this.getState());
             return;
 
         }
 
         this.setState('execution');
 
-        var first   = queue.shift(),
-            command = first.command,
-            defer   = first.deferred;
+        var first       = queue.shift(),
+            command     = first.command,
+            defer       = first.deferred;
     
         cmdId = (cmdId + 1) % 8;
 
@@ -95,13 +103,13 @@ Register = function (client, loop, start) {
             ex_flag     = 1 << 15,
             cmdReg      = cmdId + cmd + ex_flag;
 
-        console.log('Register', 'Writing to modbus server.', cmdReg);
+        console.log('Register',rd_id, 'Writing to modbus server.', cmdReg);
 
         var promisses = [];
 
         if (first.param !== undefined) {
         
-            console.log('Register', 'Execution sets parameter.', first.param);
+            console.log('Register',rd_id, 'Execution sets parameter.', first.param);
 
             promisses.push(client.writeSingleRegister(start + 3, first.param));
         
@@ -112,7 +120,7 @@ Register = function (client, loop, start) {
 
         $.when.apply(this, promisses).fail(function (err) {
    
-                console.error('Register', 'Sending command to PLC failed.', err);
+                console.error('Register',rd_id, 'Sending command to PLC failed.', err);
 
                 defer.reject({ 
                     errCode: 'modbusError' 
@@ -122,13 +130,13 @@ Register = function (client, loop, start) {
     
             }.bind(this)).then(function () {
             
-                console.log('Register', 'Sending command to PLC was successfull.');
+                console.log('Register',rd_id, 'Sending command to PLC was successfull.');
 
                 var handler_id, timeout_id, update_count = 0;
 
                 timeout_id = setTimeout(function () {
 
-                    console.error('Register', 'PLC did not executed the command inside the timeframe.', update_count, status);
+                    console.error('Register',rd_id, 'PLC did not executed the command inside the timeframe.', update_count, status);
 
                     defer.reject({ 
                         errCode         : 'timeout', 
@@ -145,20 +153,20 @@ Register = function (client, loop, start) {
 
                     if (status.cmd_count === cmdId && status.cmd_ex) { 
 
-                        console.log('Register', 'Command executed.', status);
+                        console.log('Register',rd_id, 'Command executed.', status);
  
                         this.off(handler_id);
                         clearTimeout(timeout_id);
 
                         if (!status.cmd_err) {
 
-                            console.log('Register', 'PLC executed command successfully.');
+                            console.log('Register',rd_id, 'PLC executed command successfully.');
 
                             defer.resolve(status.arg);
 
                         } else {
      
-                            console.error('Register', 'PLC responded with execution error.');              
+                            console.error('Register',rd_id, 'PLC responded with execution error.');              
 
                             defer.reject({ errCode: 'plcError' });
 
@@ -179,7 +187,7 @@ Register = function (client, loop, start) {
 
     this.execute = function (command, param) {
 
-        console.log('Register', 'Queing a new command.', command, param);
+        console.log('Register',rd_id, 'Queing a new command.', command, param);
 
         var defer = $.Deferred();
 
@@ -197,7 +205,7 @@ Register = function (client, loop, start) {
 
     this.on('state_changed', function (oldState, newState) {
    
-        console.log('Register', 'State changed from', oldState, 'to', newState);
+        console.log('Register',rd_id, 'State changed from', oldState, 'to', newState);
 
         if (newState === 'ready') {
 

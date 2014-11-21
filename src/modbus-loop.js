@@ -49,7 +49,7 @@ ModbusLoop = function (client, duration) {
 
     var executeInputRegistersLoop = function () {
  
-        var promisses = [], cur, promise, inputsList, retPromise;
+        var promisses = [], cur, promise, inputsList, retPromise, lists, min, start, end;
 
         inputsList = readInputRegistersList.getList();
  
@@ -57,9 +57,27 @@ ModbusLoop = function (client, duration) {
    
             cur = inputsList[i];
 
-            promise = client.readInputRegisters(cur.start, cur.end - cur.start);
+            start   = cur.start;
+            min     = 0;
+            end     = 0;
 
-            promisses.push(promise);
+            // restricting the size of a register call to 120, otherwise
+            // there can be modbus errors due to too many requests
+
+            do {
+
+                start   = start + min;
+                min     = Math.min(start + 120, cur.end - start);
+                end     = start + min;
+
+                promise = client.readInputRegisters(start, min);
+
+                promisses.push(promise);
+
+
+            } while (end !== cur.end);
+
+
 
         }
 
@@ -95,7 +113,27 @@ ModbusLoop = function (client, duration) {
    
             cur = inputsList[i];
 
-            promise = client.readHoldingRegisters(cur.start, cur.end - cur.start);
+            start   = cur.start;
+            min     = 0;
+            end     = 0;
+
+            // restricting the size of a register call to 120, otherwise
+            // there can be modbus errors due to too many requests
+
+
+            do {
+
+                start   = start + min;
+                min     = Math.min(start + 120, cur.end - start);
+                end     = start + min;
+
+                promise = client.readHoldingRegisters(start, min);
+
+                promisses.push(promise);
+
+
+            } while (end !== cur.end);
+
 
             promisses.push(promise);
 
@@ -150,7 +188,9 @@ ModbusLoop = function (client, duration) {
                 executeLoop();
           
             }.bind(this)).fail(function () {
-            
+
+                console.error('ModbusLoop', 'Error occured, stopping loop.', arguments);
+
                 this.setState('stop');
 
             }.bind(this));
