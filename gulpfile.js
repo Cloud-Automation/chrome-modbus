@@ -6,14 +6,23 @@ var gulp            = require('gulp'),
     clean           = require('gulp-clean'),
     removelogs      = require('gulp-removelogs'),
     stripDebug      = require('gulp-strip-debug'),
+    mocha           = require('gulp-mocha'),
     uglify_config   = {
         'enclose'       : true,
         'mangle'        : false
     };
 
-gulp.task('main', function () {
+gulp.task('test', function () {
+
+    return gulp.src('test/range-list.test.js')
+        .pipe( mocha() );
+
+});
+
+gulp.task('main', ['test'], function () {
 
     return gulp.src( 'src/modbus.js' )
+        .pipe( mocha() )
         .pipe( include() )
         .pipe( stripDebug())
         .pipe( uglify('modbus.min.js', uglify_config ))

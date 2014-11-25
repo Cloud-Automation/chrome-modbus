@@ -1,7 +1,7 @@
-var RangeList = function () {
+var RangeList = function (max) {
 
     if (!(this instanceof RangeList)) {
-        return new RangeList();
+        return new RangeList(max);
     }
 
     /*
@@ -13,6 +13,7 @@ var RangeList = function () {
     var shrink = function () {
  
         if (list.length === 1 ) {
+            optimize();
             return this;
         }
 
@@ -36,7 +37,9 @@ var RangeList = function () {
             j += 1;
 
         }
-    
+
+        optimize();
+
     }.bind(this);
 
     this.merge = function (start, end) {
@@ -56,9 +59,13 @@ var RangeList = function () {
         
             cur = list[i];
 
+            // neuer start ist größer als element ende
+            // => füge am ender der liste ein
+            
             if (cur.start > end) {
             
                 list.splice(i, 0, { start: start, end: end });
+
                 shrink();
 
                 return this;
@@ -118,10 +125,33 @@ var RangeList = function () {
         list.push({ start: start, end: end });
 
         shrink();
-        
+       
         return this;
 
     };
+
+    var optimize = function () {
+
+        if (!max) {
+            return;
+        }
+
+        var l = [], start, end;
+    
+        for (var i = 0; i < list.length; i += 1) {
+        
+            if (list[i].end - list[i].start > max) {
+
+                list.splice(i + 1, 0, { start: list[i].start + max, end: list[i].end });
+
+                list[i].end = list[i].start + max;
+
+
+            }
+                
+        }
+
+    }.bind(this);
 
     this.getList = function () {
 
@@ -131,4 +161,6 @@ var RangeList = function () {
 
 };
 
-
+if (typeof exports !== 'undefined') {
+    exports.RangeList = RangeList;
+}

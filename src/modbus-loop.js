@@ -8,9 +8,9 @@ ModbusLoop = function (client, duration) {
 
     StateMachine.call(this, 'stop');
 
-    var readInputRegistersList    = new RangeList(),
-        readHoldingRegistersList  = new RangeList(),
-        readCoilList              = new RangeList(),
+    var readInputRegistersList    = new RangeList(100),
+        readHoldingRegistersList  = new RangeList(100),
+        readCoilList              = new RangeList(100),
         inputRegisters            = [],
         holdingRegisters          = [],
         coils                     = [];
@@ -49,7 +49,7 @@ ModbusLoop = function (client, duration) {
 
     var executeInputRegistersLoop = function () {
  
-        var promisses = [], cur, promise, inputsList, retPromise, lists, min, start, end;
+        var promisses = [], cur, promise, inputsList, retPromise, lists;
 
         inputsList = readInputRegistersList.getList();
  
@@ -57,27 +57,9 @@ ModbusLoop = function (client, duration) {
    
             cur = inputsList[i];
 
-            start   = cur.start;
-            min     = 0;
-            end     = 0;
+            promise = client.readInputRegisters(cur.start, cur.end - cur.start);
 
-            // restricting the size of a register call to 120, otherwise
-            // there can be modbus errors due to too many requests
-
-            do {
-
-                start   = start + min;
-                min     = Math.min(start + 120, cur.end - start);
-                end     = start + min;
-
-                promise = client.readInputRegisters(start, min);
-
-                promisses.push(promise);
-
-
-            } while (end !== cur.end);
-
-
+            promisses.push(promise);
 
         }
 
@@ -113,27 +95,7 @@ ModbusLoop = function (client, duration) {
    
             cur = inputsList[i];
 
-            start   = cur.start;
-            min     = 0;
-            end     = 0;
-
-            // restricting the size of a register call to 120, otherwise
-            // there can be modbus errors due to too many requests
-
-
-            do {
-
-                start   = start + min;
-                min     = Math.min(start + 120, cur.end - start);
-                end     = start + min;
-
-                promise = client.readHoldingRegisters(start, min);
-
-                promisses.push(promise);
-
-
-            } while (end !== cur.end);
-
+            promise = client.readHoldingRegisters(cur.start, cur.end - cur.start);
 
             promisses.push(promise);
 
