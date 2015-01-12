@@ -221,6 +221,12 @@ Register = function (client, loop, start) {
 
     };
 
+    this.getAddress = function () {
+    
+        return start;
+    
+    };
+
     this.close = function () {
 
         loop.off(loopListenerId);

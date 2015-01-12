@@ -130,17 +130,17 @@ $(document).ready(function () {
 
         reg.on('update_status', function () {
 
-            $('#s1').html(reg.status.stateflag_1?'1':'0');
-            $('#s2').html(reg.status.stateflag_2?'1':'0');
-            $('#s3').html(reg.status.stateflag_3?'1':'0');
-            $('#s4').html(reg.status.stateflag_4?'1':'0');
+            $('#s1').html(reg.getStatus().stateflag_1?'1':'0');
+            $('#s2').html(reg.getStatus().stateflag_2?'1':'0');
+            $('#s3').html(reg.getStatus().stateflag_3?'1':'0');
+            $('#s4').html(reg.getStatus().stateflag_4?'1':'0');
 
-            $('#state').html(reg.status.state);
-            $('#cid').html(reg.status.cmd_count);
-            $('#cex').html(reg.status.cmd_ex?'1':'0');
-            $('#cer').html(reg.status.cmd_err?'1':'0');
+            $('#state').html(reg.getStatus().state);
+            $('#cid').html(reg.getStatus().cmd_count);
+            $('#cex').html(reg.getStatus().cmd_ex?'1':'0');
+            $('#cer').html(reg.getStatus().cmd_err?'1':'0');
 
-            $('#s_arg').html(reg.status.arg);
+            $('#s_arg').html(reg.getStatus().arg);
 
         });
 
@@ -151,7 +151,7 @@ $(document).ready(function () {
 
             App.log('Executing command', cmd, 'with Parameter', param);
 
-            reg._execute(cmd, param).then(function () {
+            reg.execute(cmd, param).then(function () {
        
                 App.log('Command execution successfull.');
         

@@ -8,12 +8,16 @@ ModbusLoop = function (client, duration) {
 
     StateMachine.call(this, 'stop');
 
-    var readInputRegistersList    = new RangeList(100),
-        readHoldingRegistersList  = new RangeList(100),
-        readCoilList              = new RangeList(100),
+    var readInputRegistersList    = new RangeList(125),
+        readHoldingRegistersList  = new RangeList(125),
+        readCoilList              = new RangeList(125),
         inputRegisters            = [],
         holdingRegisters          = [],
-        coils                     = [];
+        coils                     = [],
+        startTime, 
+        endTime, 
+        lastTime = 0, 
+        midTime;
 
     client.on('disconnected', function () {
     
@@ -49,7 +53,12 @@ ModbusLoop = function (client, duration) {
 
     var executeInputRegistersLoop = function () {
  
-        var promisses = [], cur, promise, inputsList, retPromise, lists;
+        var promisses = [], 
+            cur, 
+            promise, 
+            inputsList, 
+            retPromise, 
+            lists;
 
         inputsList = readInputRegistersList.getList();
  
@@ -87,7 +96,11 @@ ModbusLoop = function (client, duration) {
    
     var executeHoldingRegistersLoop = function () {
  
-        var promisses = [], cur, promise, inputsList, retPromise;
+        var promisses = [], 
+            cur, 
+            promise, 
+            inputsList, 
+            retPromise;
 
         inputsList = readHoldingRegistersList.getList();
  
@@ -111,8 +124,9 @@ ModbusLoop = function (client, duration) {
                 args = arguments;
             }
 
-            for (var i in args) {
-           
+
+            for (var i=0; i < args.length; i += 1) {
+
                 updateHoldingRegisters(args[i][1].getStart(), args[i][0]);
             
             }
@@ -128,6 +142,8 @@ ModbusLoop = function (client, duration) {
         if (!this.inState('running')) {
             return;
         }
+
+        startTime = new Date().getTime();
 
         var len_1   = readInputRegistersList.getList().length,
             len_2   = readHoldingRegistersList.getList().length,
@@ -145,15 +161,24 @@ ModbusLoop = function (client, duration) {
 
         $.when.apply(this, [ loop_1, loop_2 ]).then(function () {
  
-                this.fire('update', [ inputRegisters, holdingRegisters ]);
+                endTime = new Date().getTime(); 
+
+                midTime = (lastTime + (endTime - startTime)) / 2;
+                lastTime = midTime;
+
+                this.fire('update', [ 
+                    inputRegisters, 
+                    holdingRegisters, 
+                    { startTime: startTime, endTime: endTime, midTime: midTime } ]);
  
+
                 executeLoop();
           
             }.bind(this)).fail(function () {
 
                 console.error('ModbusLoop', 'Error occured, stopping loop.', arguments);
 
-                this.setState('stop');
+                //this.setState('stop');
 
             }.bind(this));
 

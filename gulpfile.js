@@ -19,10 +19,9 @@ gulp.task('test', function () {
 
 });
 
-gulp.task('main', ['test'], function () {
+gulp.task('main', ['test'],  function () {
 
     return gulp.src( 'src/modbus.js' )
-        .pipe( mocha() )
         .pipe( include() )
         .pipe( stripDebug())
         .pipe( uglify('modbus.min.js', uglify_config ))

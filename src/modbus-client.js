@@ -386,6 +386,230 @@ var WriteSingleRegisterRequest = function (id, address, value) {
 
 WriteSingleRegisterRequest.inherits(ModbusRequest);
 
+var ModbusRequestManager = function () {
+
+    if (!(this instanceof ModbusRequestManager))
+        return new ModbusRequestManager();
+
+    StateMachine.call(this, 'init');
+
+    var queue           = [],
+        currentRequest  = null,
+        socketId        = null,
+        receiveBuffer   = [ ];
+
+    var init = function () {
+    
+        chrome.sockets.tcp.onReceive.addListener(receiveListener);
+        // constructor
+
+        this.on('state_changed', function (oldState, newState) {
+        
+            if (newState === 'ready') {
+
+                console.log('ModbusRequestManager', 'State changed to ready.');
+
+                send();
+
+            }
+
+            if (newState === 'received') {
+            
+                console.log('ModbusRequestManager', 'State changed to received');
+
+                handleResponse();
+            
+            }
+
+        });
+
+    }.bind(this);
+
+    var receiveListener = function (resp) {
+
+        console.log('ModbusRequestManager', 'Received something.');
+
+        if (resp.socketId !== socketId) {
+            console.log('ModbusRequestManager', 'Received packet with wrong socketId');
+            return;
+        }
+
+        receiveBuffer.push(resp);
+
+        if (!this.inState('waiting')) {
+            return;
+        }
+
+        this.setState('received');
+
+    }.bind(this);
+
+    var handleResponse = function () {
+
+        console.log('ModbusRequestManager', 'Trying to handle response.');
+
+        if (receiveBuffer.length === 0) {
+        
+            console.log('ModbusRequestManager', 'Nothing in request buffer.');
+            this.setState('ready');
+
+            return;
+        
+        }
+
+        if (receiveBuffer.length > 1) {
+        
+            console.error('ModbusRequestManager', 'ReceiveBuffer size is greater than 2, strange!!');
+            this.setState('ready');
+
+            return;
+        
+        }
+
+        var response    = receiveBuffer.shift(),
+            data        = response.data;
+
+        if (data.byteLength < 7) {
+            console.log('ModbusRequestManager', 'Wrong packet size.', (data.byteLength));
+            return;
+        }
+
+        // read the header
+        var mbap        = new DataView(data, 0, 7),
+            tid         = mbap.getUint16(0);
+
+        if (!currentRequest) {
+
+            console.error('ModbusRequestManager', 'No current request, strange!!', currentRequest);
+
+            return;
+           
+        }
+
+        if (currentRequest.getId() !== tid) {
+        
+            console.error('ModbusRequestManager', 'CurrentRequest tid !== received tid', currentRequest.getId(), tid);
+
+            return;
+        
+        }
+
+        console.log('ModbusRequestManager', 'Request handled fine.');
+
+        // cleartimeout
+        clearTimeout(currentRequest.getTimeout()); 
+
+        // handle fc response       
+        currentRequest.handleResponse(data, 0); 
+
+        this.setState('ready'); 
+       
+    }.bind(this);
+
+
+    var send = function () {
+   
+        if (queue.length === 0) {
+            console.log('ModbusRequestManager', 'Nothing in Queue');
+            return;
+        }
+
+        if (!this.inState('ready')) {
+            console.log('ModbusRequestManager', 'Not in state ready.');
+            return;
+        }
+
+        console.log('ModbusRequestManager', 'Trying to send packet');
+
+        this.setState('sending');
+
+        currentRequest = queue.shift();
+
+        // Before sending set the timeout for this request
+
+        var timeout_no = setTimeout(function () {
+ 
+            console.log('ModbusRequestManager', 'Timeout occured.');
+
+            currentRequest.reject({ errCode: 'timeout' });
+ 
+            this.setState('ready');
+      
+        }.bind(this), 5000);
+
+        currentRequest.setTimeout(timeout_no);
+
+        console.log('ModbusRequestManager', 'Sending packet...');
+
+        chrome.sockets.tcp.send(socketId, currentRequest.getPacket(), function (sendInfo) {
+  
+            if (sendInfo.resultCode < 0) {
+            
+                console.log('ModbusRequestManager', 'A error occured while sending packet.', sendInfo.resultCode);
+
+                currentRequest.reject({ errCode: 'sendError' });
+
+                this.setState('ready');
+
+                return;
+
+            }
+
+            console.log('ModbusRequestManager', 'Packet send! Waiting for response.');
+
+            this.setState('waiting');
+       
+        }.bind(this));
+    
+    }.bind(this);
+
+    this.setSocketId = function (id) {
+    
+        socketId = id;
+
+        this.setState('ready');
+
+        return this;
+    
+    };
+
+    this.sendPacket = function (packet) {
+
+        console.log('ModbusRequestManager', 'Queuing a new packet.');
+
+        queue.push(packet);
+   
+        if (socketId === null) {
+            return;
+        }
+
+        send();  
+
+        return this;
+
+    };
+
+    this.flush = function () {
+   
+        console.log('ModbusRequestManager', 'Flush');
+
+        if (socketId === null) {
+            return;
+        }
+
+        send();
+
+        return this;
+    
+    };
+
+    init();
+
+};
+
+ModbusRequestManager.inherits(StateMachine);
+
+
 ModbusClient = function (timeout) { 
    
     if (!(this instanceof ModbusClient))
@@ -394,23 +618,21 @@ ModbusClient = function (timeout) {
     // needed for the inheritance
     StateMachine.call(this, 'init');
 
-    var host = 'localhost',
-        port = 502,
-        id = 0,
-        requests = { },
-        requestQueue = [],
+    var host            = 'localhost',
+        port            = 502,
+        id              = 0,
+        requestManager  = new ModbusRequestManager(),
         socketId,
-        isWaiting = false;
+        isWaiting       = false;
 
-    if (!timeout) {
+    if (!timeout) 
         timeout = 5000;
-    }
 
     // flush everything when going from error to online again
     this.on('state_changed', function (oldState, newState) {
     
         if (oldState === 'error' && newState === 'online') {
-            sendPacket();
+            requestManager.flush();
         }
 
     });
@@ -419,139 +641,26 @@ ModbusClient = function (timeout) {
     
         // remove all remaining packages
 
-        for (var i in requestQueue) {
-        
-            requestQueue[i].reject({ errCode: 'connectionError' });
-
-        }
-    
+   
     });
-
-    var receiveListener = function (resp) { 
-
-        var offset  = 0,
-            data    = resp.data,
-            request,
-            byte_count;
-
-        while (offset < data.byteLength) {
-
-            if (data.byteLength - offset < 7) {
-                console.log('ModbusClient', 'Wrong packet size.');
-                return;
-            }
-
-            // read the header
-            var mbap        = new DataView(data, offset + 0, 7),
-                tid         = mbap.getUint16(0);
-
-            request         = requests[tid];
-
-            if (!request) {
-
-                // if there is no handler just skip this package
-
-                // offset += 7 + 2 + byte_count;
-
-                // TODO: handle this with a list of fc -> byte_count                 
-                return;
-               
-            }
-
-            // cleartimeout
-            clearTimeout(request.getTimeout()); 
-
-            // handle fc response       
-            byte_count = request.handleResponse(data, offset);     
-              
-            // delete the handler
-            delete requests[tid];
-
-            offset += 7;
-            offset += byte_count;
-        
-        }
-
-    }.bind(this);
 
     var createNewId = function () {
 
         id = (id + 1) % 10000;
-   
+  
         return id;
 
     }.bind(this);
 
     var sendPacket = function (req) {
        
-        // just push the request to the queue 
-        if (arguments.length > 0) {
-            requestQueue.push(req);
-        }
-
         // invalid states for sending packages
-        if (isWaiting || !this.inState('online')) {
+        if (!this.inState('online')) {
             return;
         }
 
-        // no requests in line
-        if (requestQueue.length === 0) {
-            return;
-        }
+        requestManager.sendPacket(req);
 
-        isWaiting = true;
-
-        var request = requestQueue.shift();
-
-        // Before sending set the timeout for this request
-
-        var timeout_no = setTimeout(function () {
- 
-            console.log('ModbusClient', 'Timeout occured.');
-
-            if (this.inState('error')) {
-                
-                request.reject({ 
-                    errCode: 'error' 
-                });
-                
-                return;
-            
-            }
-
-            this.setState('error');
-            request.reject({ errCode: 'timeout' });
-            this.fire('error', [ { errCode: 'timeout' }]); 
-       
-            delete requests[request.id];
-
-        }.bind(this), timeout);
-
-        request.setTimeout(timeout_no);
-
-        // Send the packet
-
-        chrome.sockets.tcp.send(
-
-            socketId, request.getPacket(), function (sendInfo) {
-   
-            if (sendInfo.resultCode < 0) {
-            
-                console.log('ModbusClient', 'A error occured while sending packet.', sendInfo.resultCode);
-
-                this.setState('error');
-                this.fire('error', { errCode: 'sendError' });
-                isWaiting = false;
-
-                return;
-
-            }
-
-            isWaiting = false;
-
-            sendPacket();
-        
-        }.bind(this));
 
     }.bind(this);
 
@@ -564,8 +673,6 @@ ModbusClient = function (timeout) {
             request.reject({ errCode: 'offline' });
             return request.getPromise();
         }
-
-        requests[request.getId()] = request;
 
         sendPacket(request);
 
@@ -581,8 +688,6 @@ ModbusClient = function (timeout) {
             request.reject({ errCode: 'offline' });
             return request.getPromise();
         }
-
-        requests[request.getId()] = request;
 
         sendPacket(request);
 
@@ -600,8 +705,6 @@ ModbusClient = function (timeout) {
             return request.getPromise();
         }
 
-        requests[request.getId()] = request;
-
         sendPacket(request);
 
         return request.getPromise();
@@ -617,8 +720,6 @@ ModbusClient = function (timeout) {
             return request.getPromise();
         }
 
-        requests[request.getId()] = request;
-
         sendPacket(request);
 
         return request.getPromise();
@@ -633,8 +734,6 @@ ModbusClient = function (timeout) {
             request.reject({ errCode: 'offline' });
             return request.getPromise();
         }
-
-        requests[request.getId()] = request;
 
         sendPacket(request);
 
@@ -686,9 +785,12 @@ ModbusClient = function (timeout) {
 
             chrome.sockets.tcp.create({}, function (createInfo) {
 
+
                 console.log('ModbusClient', 'Socket created.', createInfo);
 
                 socketId = createInfo.socketId;    
+
+                requestManager.setSocketId(socketId);
 
                 chrome.sockets.tcp.onReceiveError.addListener(function () {
 
@@ -701,10 +803,15 @@ ModbusClient = function (timeout) {
                         return;
                     }
 
+                    chrome.sockets.tcp.setPaused(socketId, false, function () { 
+                    
+                        console.log('ModbusClient', 'Socket unpaused.');
+
+                    });
 
                     this.setState('error');
 
-                    this.fire('error', [{ errCode: 'ServerError' }]);
+                    this.fire('error', [{ errCode: 'ServerError', args: arguments }]);
 
                 }.bind(this));
 
@@ -825,7 +932,6 @@ ModbusClient = function (timeout) {
 
     };
     
-    chrome.sockets.tcp.onReceive.addListener(receiveListener);
 
 };
 
