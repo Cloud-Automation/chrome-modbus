@@ -610,10 +610,10 @@ var ModbusRequestManager = function () {
 ModbusRequestManager.inherits(StateMachine);
 
 
-ModbusClient = function (timeout) { 
+ModbusClient = function (timeout, autoreconnect) { 
    
     if (!(this instanceof ModbusClient))
-        return new ModbusClient(timeout);
+        return new ModbusClient(timeout, autoreconnect);
 
     // needed for the inheritance
     StateMachine.call(this, 'init');
@@ -625,24 +625,75 @@ ModbusClient = function (timeout) {
         socketId,
         isWaiting       = false;
 
-    if (!timeout) 
-        timeout = 5000;
-
-    // flush everything when going from error to online again
-    this.on('state_changed', function (oldState, newState) {
+    var init = function init () {
+ 
+        if (!timeout) 
+            timeout = 5000;
     
-        if (oldState === 'error' && newState === 'online') {
-            requestManager.flush();
+        createSocket();
+
+        // flush everything when going from error to online again
+        this.on('state_changed', function (oldState, newState) {
+    
+            if (oldState === 'error' && newState === 'online') {
+                requestManager.flush();
+            }
+        
+        });
+
+        this.on('error', function () {
+    
+            // remove all remaining packages
+   
+        });
+
+
+    }.bind(this);
+
+
+    var onReceiveError = function onReceiveError (info) {
+ 
+        if (info.socketId !== socketId) 
+            return;
+
+        console.log('ModbusClient', 'Receive Error occured.', info);
+
+        this.setState('error');
+        this.fire('error', [{ errCode: 'ServerError', args: arguments }]);
+
+        if (autoreconnect) {
+
+            console.log('ModbusClient', 'AutoReconnect enabled, reconnecting.');
+
+            this.reconnect();
+
+            return;
         }
 
-    });
+        console.log('ModbusClient', 'Disconnecting client.');
 
-    this.on('error', function () {
+        this.close(); 
     
-        // remove all remaining packages
+    }.bind(this);
 
-   
-    });
+    var createSocket = function createSocket () {
+           
+        console.log('ModbusClient', 'Creating socket.');
+
+        chrome.sockets.tcp.create({}, function (createInfo) {
+
+            console.log('ModbusClient', 'Socket created.', createInfo);
+
+            socketId = createInfo.socketId;    
+
+            requestManager.setSocketId(socketId);
+
+            this.setState('ready');
+            this.fire('ready');
+
+        }.bind(this));
+    
+    }.bind(this);
 
     var createNewId = function () {
 
@@ -660,7 +711,6 @@ ModbusClient = function (timeout) {
         }
 
         requestManager.sendPacket(req);
-
 
     }.bind(this);
 
@@ -744,90 +794,50 @@ ModbusClient = function (timeout) {
 
     this.connect = function (h, p) {
 
+        if (!this.inState('ready')) {
+            throw new Error('Client not in ready state.');
+        }
+
         host = h; 
         port = p;
 
-        var connect = function () { 
-        
-            console.log('ModbusClient', 'Establishing connection.', 
-                        socketId, host, port);
+        console.log('ModbusClient', 'Establishing connection.', socketId, host, port);
 
-            chrome.sockets.tcp.connect(socketId, host, port, function (result) {
+        chrome.sockets.tcp.connect(socketId, host, port, function (result) {
 
-                if (result !== 0) {
+            if (result !== 0) {
 
-                    console.log('ModbusClient', 'Connection failed.', result);
+                console.log('ModbusClient', 'Connection failed.', result);
 
-                    this.fire('connect_error', [{
-                        errCode: 'connectionError',
-                        result: result
-                    }]);
+                this.fire('error', [{
+                    errCode: 'connectionError',
+                    result: result
+                }]);
+
+                if (autoreconnect) {
+                
+                    console.log('ModbusClient', 'Auto Reconnect enabled, trying to reconnect.');
+
+                    this.reconnect();
 
                     return;
                 
                 }
 
-                this.setState('online');
-
-                console.log('ModbusClient', 'Connection successfull.');
-
-                this.fire('connected');
+                return;
             
-            }.bind(this));
+            }
 
-        }.bind(this);
+            this.setState('online');
 
+            console.log('ModbusClient', 'Connection successfull.');
 
-
-        if (!socketId) {
-       
-            console.log('ModbusClient', 'No socketId provided, creating socket.');
-
-            chrome.sockets.tcp.create({}, function (createInfo) {
-
-
-                console.log('ModbusClient', 'Socket created.', createInfo);
-
-                socketId = createInfo.socketId;    
-
-                requestManager.setSocketId(socketId);
-
-                chrome.sockets.tcp.onReceiveError.addListener(function () {
-
-                    console.log('ModbusClient', 'OnReceiveError called.');
-
-                    if (!this.inState('online')) {
-
-                        console.log('ModbusClient', 'Client is not in state online an a error occured. We ll just leave it be.');
-
-                        return;
-                    }
-
-                    chrome.sockets.tcp.setPaused(socketId, false, function () { 
-                    
-                        console.log('ModbusClient', 'Socket unpaused.');
-
-                    });
-
-                    this.setState('error');
-
-                    this.fire('error', [{ errCode: 'ServerError', args: arguments }]);
-
-                }.bind(this));
-
-                connect();
-
-            }.bind(this));
-
-        } else {
-
-            connect();
+            this.fire('connected');
         
-        }
+        }.bind(this));
 
         return this;
      
-
     };
 
     this.disconnect = function (cb) {
@@ -878,7 +888,7 @@ ModbusClient = function (timeout) {
 
     };
 
-    this.reconnect = function () {
+    this.reconnect = function (cb) {
 
         console.log('ModbusClient', 'Reconnecting client.');
 
@@ -892,25 +902,12 @@ ModbusClient = function (timeout) {
 
                 chrome.sockets.tcp.connect(socketId, host, port, function (res) {
                 
-                    if (res !== 0 && this.inState('error')) {
+                    if (res !== 0) {
                     
-                        console.log('ModbusClient', 'Reconnecting failed.');
+                        console.log('ModbusClient', 'Reconnecting failed.', res);
 
                         this.fire('error', [{
                             errCode: 'reconnectionFailed',
-                            result: res
-                        }]);
-
-                        return;
-
-                    }
-
-                    if (res !== 0 && this.inState('offline')) {
-                
-                        console.log('ModbusClient', 'Connection failed.');
-
-                        this.fire('connect_error', [{
-                            errCode: 'connectionError',
                             result: res
                         }]);
 
@@ -931,7 +928,8 @@ ModbusClient = function (timeout) {
         }.bind(this));
 
     };
-    
+
+    init();    
 
 };
 
