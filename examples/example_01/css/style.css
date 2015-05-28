@@ -1,0 +1,197 @@
+#status {
+
+    position:absolute;
+    bottom:0;
+    height:2em;
+    left:0;
+    right:0;
+
+    background-color:rgb(122, 200, 0);
+
+    color:white;
+
+    line-height:2em;
+    vertical-align:middle;
+
+    font-family:Arial;
+
+    padding-left:1em;
+
+}
+
+#status.ok {
+
+    background-color:rgb(122, 200, 0);
+
+}
+
+#status .error {
+
+    background-color:rgb(255, 0, 0);
+
+}
+
+#status .info {
+
+    display:inline-block;
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+
+    padding-left:1em;
+
+}
+
+#status .error {
+
+    display:inline-block;
+    position:absolute;
+    right:0;
+    top:0;
+    bottom:0;
+
+    padding-right:1em;
+    padding-left:1em;
+    text-align:right;
+
+}
+
+.page {
+
+    position:absolute;
+
+    top:0;
+    left:0;
+    right:0;
+
+    bottom:2em;
+
+    padding:0;
+
+}
+
+.page .content {
+
+    position:absolute;
+
+    top:12em;
+    left:0;
+    right:0;
+    bottom:2em;
+
+}
+
+.page .menu {
+
+    position:absolute;
+
+    top:5em;
+    left:1em;
+    right:1em;
+    height:3em;
+
+}
+
+.page .menu button {
+
+    border: 1px solid black;
+    padding:1em;
+    margin:0.5em;
+
+}
+
+.page > h1 {
+
+    margin:0;
+    padding:1em;
+
+    color:white;
+
+    position:absolute;
+
+    top:0; left:0; right:0;
+
+    height:2em;
+
+    background-color:rgb(120, 120, 120);
+
+}
+
+#connect .content {
+
+    text-align:center;
+}
+
+#connect .content input, #connect .content label {
+    display:block;
+    text-align:center;
+}
+
+#connect table {
+    margin:auto;
+    width:70%;
+}
+
+#connect table tr:nth-child(odd) td {
+    background-color:#cecece;
+}
+
+#connect table tbody td {
+    cursor:pointer;
+}
+
+#connect table th:first-child, #connect table td:first-child {
+    text-align:left;
+}
+
+#connect table th:last-child, #connect table td:last-child {
+    text-align:right;
+}
+
+#connect .content th, #connect .content table, #connect .content td {
+    background-color:white;
+    color:black;
+    border:0;
+}
+
+.page .content input, 
+.page .content button { 
+
+    padding:0.5em;
+    width: 60%;
+    margin: 2px;
+    border:1px solid black;
+    margin:auto;
+    margin-bottom:1em;
+
+}
+
+.content input::-webkit-outer-spin-button,
+.content input::-webkit-inner-spin-button {
+
+    -webkit-appearance:none;
+    margin:0;
+
+}
+
+#connect button {
+    width:50%;
+}
+
+.content label {
+    font-weight:bold;
+    display:block;
+}
+
+.subpage  {
+    background-color:#ababab;
+    box-shadow:#cecece 0px 0px 8px;
+    margin:1em;
+    padding:0.5em;
+}
+
+.subpage h1 {
+    font-size:1.5em;
+    border-bottom:1px solid #dedede;
+}

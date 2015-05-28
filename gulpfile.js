@@ -19,23 +19,25 @@ gulp.task('test', function () {
 
 });
 
-gulp.task('main', ['test'],  function () {
+gulp.task('min', ['test'],  function () {
 
     return gulp.src( 'src/modbus.js' )
         .pipe( include() )
         .pipe( stripDebug())
         .pipe( uglify('modbus.min.js', uglify_config ))
-        .pipe( gulp.dest('bin/') );
+        .pipe( gulp.dest('dist/') );
 
 });
 
-gulp.task('example_01', ['main'], function () {
+gulp.task('dev', ['test'],  function () {
 
-    return gulp.src('bin/modbus.min.js')
-            .pipe( gulp.dest('examples/example_01/'));
+    return gulp.src( 'src/modbus.js' )
+        .pipe( include() )
+        .pipe( gulp.dest('dist/') );
 
 });
 
-gulp.task('default', [ 'main', 'example_01' ]);
+
+gulp.task('default', [ 'min', 'dev' ]);
 
 
