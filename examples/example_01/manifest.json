@@ -1,17 +1,38 @@
 {
+    "name": "Chrome Modbus Example 01",
+    "description": "Chrome Modbus Example",
+    "version": "0.0.2",
+    "manifest_version": 2,
+    "permissions": [ 
+        "power"
+    ],
     "app": {
         "background": {
-            "scripts": [ "app.js" ]
+            "scripts": [ "js/background.js" ]
+        }
+    },
+    "sockets": {
+        "tcp": {
+            "connect": "*:*"
+        }
+    },
+    "kiosk_enabled" : true,
+    "kiosk_only" : true
+}
+/*
+{
+    "app": {
+        "background": {
+            "scripts": [ "js/app.js" ]
         }
     },
     "manifest_version": 2,
     "name" : "Chrome Modbus Example 01",
     "description": "Simple Modbus Client",
     "version": "0.0.1",
-    "minimum_chrome_version": "33",
     "sockets": {
         "tcp": {
             "connect": "*:*"
         }
     }
-}
+}*/

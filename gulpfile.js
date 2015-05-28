@@ -29,6 +29,13 @@ gulp.task('main', ['test'],  function () {
 
 });
 
-gulp.task('default', [ 'main' ]);
+gulp.task('example_01', ['main'], function () {
+
+    return gulp.src('bin/modbus.min.js')
+            .pipe( gulp.dest('examples/example_01/'));
+
+});
+
+gulp.task('default', [ 'main', 'example_01' ]);
 
 

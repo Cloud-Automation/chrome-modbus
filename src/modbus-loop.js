@@ -19,17 +19,32 @@ ModbusLoop = function (client, duration) {
         lastTime = 0, 
         midTime;
 
-    client.on('disconnected', function () {
-    
-        this.setState('stop');
+    var init = function onInit () {
+ 
+        this.on('state_changed', function (oldState, newState) {
+   
+            if (newState === 'start') 
+                this.fire(newState);
+       
+            if (newState === 'stop')
+                this.fire(newState);
 
-    }.bind(this));
+        }.bind(this));
 
-    client.on('error', function () {
+        client.on('disconnected', function () {
+        
+            this.setState('stop');
+
+        }.bind(this));
+
+        client.on('error', function () {
+        
+            this.setState('stop');
+        
+        }.bind(this));
+   
     
-        this.setState('stop');
-    
-    }.bind(this));
+    }.bind(this);
 
     var updateInputRegisters = function (start, data) {
     
@@ -169,7 +184,7 @@ ModbusLoop = function (client, duration) {
                 this.fire('update', [ 
                     inputRegisters, 
                     holdingRegisters, 
-                    { startTime: startTime, endTime: endTime, midTime: midTime } ]);
+                    { startTime: startTime, endTime: endTime, midTime: midTime, requestCount: readHoldingRegistersList.getList().length + readInputRegistersList.getList().length, holdingRequests: readHoldingRegistersList.getList(), inputRequests: readInputRegistersList.getList() } ]);
  
 
                 executeLoop();
@@ -177,6 +192,8 @@ ModbusLoop = function (client, duration) {
             }.bind(this)).fail(function () {
 
                 console.error('ModbusLoop', 'Error occured, stopping loop.', arguments);
+
+                executeLoop();
 
                 //this.setState('stop');
 
@@ -218,6 +235,9 @@ ModbusLoop = function (client, duration) {
         this.setState('stop');
 
     };
+
+    init();
+
 };
 
 ModbusLoop.inherits(StateMachine);
