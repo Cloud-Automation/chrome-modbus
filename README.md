@@ -18,23 +18,17 @@ Create a client object.
 
 Setup different handler.
 
-If a connect attempt succeeded the 'connected' event is fired,
+If a connect attempt succeeded the 'online' event is fired,
 
-    client.on('connected', function () {
+    client.on('online', function () {
 
        console.log('connected');
 
     });
 
-otherwise a 'connect_error' event will be fired.
+If the client gets disconnected the 'offline' event is fired.
 
-    client.on('connect_error', function () {
-
-    });
-
-If the client gets disconnected the 'disconnected' event is fired.
-
-    client.on('disconnected', function () {
+    client.on('offline', function () {
 
         console.log('disconnected');
 
@@ -133,35 +127,7 @@ Handle errors.
 
 Note: You can add new modbus requests at any time.
 
-## Command and Status Registers
-
-Once you have established a loop you can handle more complex operations with a Register object. A Register consists of four holding register entries and it divides into two status register and two command registers.
-
-The first status register serves four status bits (bit 0 - 3), a state field (bit 4 - bit 10), a command counter for the command execution in the command registers (bit 11 - 13), a command execution flag (bit 14) and a command failure flag (bit 15).
-
-The second status register descripes the status argument and can be used depending on the application.
-
-The first command register consists of a command counter (bit 0 - 2), a command field (bit 3 - 14) and a command execution flag (bit 15).
-
-The second command register is a command argument that can be used in the command context.
-
-### Setup a new register
-
-    var register = new Register(client, loop, offset);
-
-    register.execute(command, arg).then(function (status_arg) {
-
-        ...
-
-    }).fail(function (err) {
-
-        ...
-
-    });
-
-For more informations on Register see the Wiki Page.
-
-# Licence
+ Licence
 
 The MIT License (MIT)
 Copyright © 2014 Stefan Pöter, stefan.poeter[at]cloud-automation.de

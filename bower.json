@@ -1,0 +1,26 @@
+{
+  "name": "chrome-modbus",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Cloud-Automation/chrome-modbus",
+  "authors": [
+    "Stefan Pöter <stefan.poeter@cloud-automation.de>"
+  ],
+  "description": "Modbus Client Implementation for Chrome Web Applications.",
+  "main": "dist/modbus.js",
+  "keywords": [
+    "chrome",
+    "webapp",
+    "modbus",
+    "client",
+    "tcp",
+    "ip"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
