@@ -6,7 +6,7 @@
     "Stefan Pöter <stefan.poeter@cloud-automation.de>"
   ],
   "description": "Modbus Client Implementation for Chrome Web Applications.",
-  "main": "dist/modbus.js",
+  "main": "dist/modbus.min.js",
   "keywords": [
     "chrome",
     "webapp",
