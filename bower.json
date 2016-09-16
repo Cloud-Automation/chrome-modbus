@@ -1,6 +1,6 @@
 {
   "name": "chrome-modbus",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "homepage": "https://github.com/Cloud-Automation/chrome-modbus",
   "authors": [
     "Stefan Pöter <stefan.poeter@cloud-automation.de>"
@@ -22,5 +22,6 @@
     "bower_components",
     "test",
     "tests"
-  ]
+  ],
+  "dependencies": {}
 }

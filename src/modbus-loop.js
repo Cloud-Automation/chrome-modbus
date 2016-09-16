@@ -66,7 +66,7 @@ ModbusLoop = function (client, duration) {
 
     }.bind(this);
 
-    var executeInputRegistersLoop = function () {
+    var executeInputRegistersLoop = function () {
  
         var promisses = [], 
             cur, 
@@ -97,8 +97,12 @@ ModbusLoop = function (client, duration) {
                 args = arguments;
             }
 
-            for (var i in args) {
-            
+            for (var i = 0; i < args.length; i += 1) {
+           
+                if (!args[i]) {
+                    continue;
+                }
+
                 updateInputRegisters(args[i][1].getStart(), args[i][0]);
             
             }
@@ -109,7 +113,7 @@ ModbusLoop = function (client, duration) {
     
     }.bind(this);
    
-    var executeHoldingRegistersLoop = function () {
+    var executeHoldingRegistersLoop = function () { 
  
         var promisses = [], 
             cur, 
@@ -219,6 +223,10 @@ ModbusLoop = function (client, duration) {
     };
 
     this.start = function () {
+
+        if (!this.inState('stop') && !this.inState('init')) {
+            return;
+        }
 
         console.log('ModbusLoop', 'Starting loop.');
 

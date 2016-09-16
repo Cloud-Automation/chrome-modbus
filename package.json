@@ -1,0 +1,43 @@
+{
+  "name": "chrome-modbus",
+  "version": "0.1.2",
+  "description": "Client and Server implementation for the Modbus TCP/IP Protocol. The client supports the function codes 1,3,4,5,6.",
+  "main": "gulpfile.js",
+  "bin": {
+    "chrome-modbus": "modbus.min.js"
+  },
+  "directories": {
+    "example": "examples",
+    "test": "test"
+  },
+  "dependencies": {
+    "gulp-include": "^2.3.1"
+  },
+  "devDependencies": {
+    "gulp-clean": "^0.3.2",
+    "gulp-include": "^2.3.1",
+    "gulp-mocha": "^3.0.1",
+    "gulp-removelogs": "^0.1.0",
+    "gulp-rename": "^1.2.2",
+    "gulp-sass": "^2.3.2",
+    "gulp-strip-debug": "^1.1.0",
+    "gulp-uglifyjs": "^0.6.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com//cloud-automation/chrome-modbus.git"
+  },
+  "keywords": [
+    "Chrome",
+    "App",
+    "Modbus",
+    "Client",
+    "Server",
+    "TCP"
+  ],
+  "author": "Stefan Pöter",
+  "license": "MIT"
+}

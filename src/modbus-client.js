@@ -12,7 +12,8 @@ var MBAP_TID                = 0,
     READ_HOLDING_REGISTERS  = 3,
     READ_INPUT_REGISTERS    = 4,
     WRITE_SINGLE_COIL       = 5,
-    WRITE_SINGLE_REGISTER   = 6;
+    WRITE_SINGLE_REGISTER   = 6,
+    WRITE_MULTIPLE_REGISTERS = 16;
 
 var ModbusRequest = function (id, length) {
 
@@ -34,7 +35,7 @@ var ModbusRequest = function (id, length) {
     
     }.bind(this);
 
- 
+
     this.getId = function () {
     
         return id;
@@ -75,7 +76,7 @@ var ModbusRequest = function (id, length) {
 
     };
     
-    this.setTimeout = function (to) {
+    this.setTimeout = function (to) {
 
         timeout = to;
 
@@ -432,6 +433,72 @@ var WriteSingleRegisterRequest = function (id, address, value) {
 
 WriteSingleRegisterRequest.inherits(ModbusRequest);
 
+var WriteMultipleRegistersRequest = function (id, address, values) {
+
+    if (!(this instanceof WriteMultipleRegistersRequest)) {
+        return new WriteMultipleRegistersRequest(id, address, values);
+    }
+
+    ModbusRequest.call(this, id, 7 + 6 + (values.length * 2));
+
+    var body;
+   
+    var init = function () {
+       
+        body = new DataView(this.getPacket(), 7, 6 + (values.length * 2));
+
+        body.setUint8(BODY_FC, WRITE_MULTIPLE_REGISTERS);
+        body.setUint16(1, address);
+        body.setUint16(3, values.length);
+        body.setUint8(5, 2 * values.length);
+        values.forEach(function (v, i) {
+            body.setUint16(6 + (i * 2), v);
+        });
+
+    }.bind(this);
+
+    this.getAddress = function () {
+    
+        return address;
+    
+    };
+
+    this.getValues = function () {
+    
+        return values;
+    
+    };
+
+
+    this.handleResponse = function (data, offset) {
+
+        var mbap        = new DataView(data, offset, 7),
+            pdu         = new DataView(data, offset + 7, 5),
+            fc          = pdu.getUint8(0),
+            start       = pdu.getUint16(1),
+            quant       = pdu.getUint16(3);
+
+        if (fc > 0x80) {
+      
+            this.reject({ errCode: 'serverError' });
+
+            return 2;
+
+        }
+
+        this.resolve(this);
+
+        return 5;
+
+    };
+
+    init();
+
+};
+
+WriteMultipleRegistersRequest.inherits(ModbusRequest);
+
+
 var ModbusRequestManager = function () {
 
     if (!(this instanceof ModbusRequestManager))
@@ -682,6 +749,8 @@ ModbusClient = function (timeout, autoreconnect) {
         // flush everything when going from error to online again
         this.on('state_changed', function (oldState, newState) {
 
+            console.log('state changed', oldState, newState);
+
             this.fire(newState);
 
             if (oldState === 'error' && newState === 'online') {
@@ -783,6 +852,12 @@ ModbusClient = function (timeout, autoreconnect) {
 
     }.bind(this);
 
+    this.isOnline = function () {
+    
+        return this.inState('online');
+
+    }.bind(this);
+ 
 
     this.readCoils = function (start, count) {
 
@@ -870,8 +945,31 @@ ModbusClient = function (timeout, autoreconnect) {
 
     };
 
+    this.writeMultipleRegisters = function (address, values) {
+    
+        var request = new WriteMultipleRegistersRequest(createNewId(), address, values);
+
+        if (!this.inState('online')) {
+        
+            request.reject({ errCode: 'offline' });
+            return request.getPromise();
+
+        }
+
+        sendPacket(request);
+
+        return request.getPromise();
+    
+    };
 
     var connect = function () {
+
+        if (this.inState('connecting') || this.inState('online')) {
+            return;
+        }
+
+        this.setState('connecting');
+        this.fire('busy');
 
         console.log('ModbusClient', 'Establishing connection.', socketId, host, port);
 
@@ -928,6 +1026,14 @@ ModbusClient = function (timeout, autoreconnect) {
     
     };
 
+    this.getHost = function () {
+        return host;
+    };
+
+    this.getPort = function () {
+        return port;
+    };
+
     this.connect = function () {
     
         connect();
@@ -938,11 +1044,19 @@ ModbusClient = function (timeout, autoreconnect) {
 
     this.disconnect = function (cb) {
 
+        if (this.inState('disconnecting')) {
+            return;
+        }
+
+        this.setState('disconnecting');
+        this.fire('busy');
+
         console.log('ModbusClient', 'Disconnecting client.');
 
         chrome.sockets.tcp.disconnect(socketId, function () {
 
             console.log('ModbusClient', 'Client disconnected.');
+
 
             this.setState('offline');
 
